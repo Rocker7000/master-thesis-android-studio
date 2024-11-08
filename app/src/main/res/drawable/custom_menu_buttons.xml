@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <!-- Зовнішнє затінення по боках і знизу -->
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#E0E0E0"/> <!-- Колір фону з ефектом тіні -->
+          -->
+        </shape>
+    </item>
+
+    <!-- Внутрішнє затінення зверху -->
+    <item android:left="1dp" android:top="1dp" android:right="1dp" android:bottom="1dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:startColor="#21000000"
+            android:endColor="#FFFFFF"
+            android:angle="90"/>
+        </shape>
+    </item>
+
+    <!-- Основний фон кнопки -->
+    <item android:left="2dp" android:top="2dp" android:right="2dp" android:bottom="4dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#FFFFFF"/>
+        </shape>
+    </item>
+</layer-list>

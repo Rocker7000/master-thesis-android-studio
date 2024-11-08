@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">My Application</string>
+    <string name="home">HOME</string>
+    <string name="monitoring">Monitoring</string>
+    <string name="statistics">Statistics</string>
+    <string name="analysis">Analysis</string>
+</resources>
