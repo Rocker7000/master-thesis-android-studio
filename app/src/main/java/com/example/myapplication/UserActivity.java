@@ -1,59 +1,111 @@
 package com.example.myapplication;
 
+import android.content.Intent;
 import android.os.Bundle;
+import android.util.Log;
 import android.view.View;
-import android.widget.Button;
-import android.widget.ImageButton;
-import android.widget.LinearLayout;
+import android.widget.ImageView;
 import android.widget.TextView;
+import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.annotation.StringDef;
 import androidx.appcompat.app.AppCompatActivity;
+
+import com.bumptech.glide.Glide;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
+import com.google.firebase.database.DataSnapshot;
+import com.google.firebase.database.DatabaseError;
+import com.google.firebase.database.DatabaseReference;
+import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.ValueEventListener;
 
 
 public class UserActivity extends AppCompatActivity {
 
 
-    private Button addDeviceButton;
-    private LinearLayout devicesListContainer;
+    private ImageView profileImageView;
+    private TextView nicknameTextView, emailTextView, numberTextView;
+    private DatabaseReference databaseRef;
+    private FirebaseUser currentUser;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.user_activity);
 
-        addDeviceButton = findViewById(R.id.addDeviceButton);
-        devicesListContainer = findViewById(R.id.devicesListContainer);
 
-        // Натискання на кнопку "Додати"
-        addDeviceButton.setOnClickListener(v -> {
-            addNewDevice("Device Name", "Additional Info");  // Додаємо новий пристрій із зразковими даними
-            addDeviceButton.setVisibility(View.GONE);  // Приховуємо кнопку "Додати" після додавання пристрою
-        });
-    }
+        profileImageView = findViewById(R.id.profileImage);
+        nicknameTextView = findViewById(R.id.nicknameText);
+        emailTextView = findViewById(R.id.emailText);
+        numberTextView = findViewById(R.id.phoneNumber);
 
-    // Метод для додавання нового пристрою
-    private void addNewDevice(String deviceName, String additionalInfo) {
-        // Створення вигляду для нового пристрою на основі макета device_item.xml
-        View deviceView = getLayoutInflater().inflate(R.layout.device_item, devicesListContainer, false);
+        currentUser = FirebaseAuth.getInstance().getCurrentUser();
 
-        TextView deviceNameText = deviceView.findViewById(R.id.deviceName);
-        ImageButton deleteButton = deviceView.findViewById(R.id.deleteDeviceButton);
+        loadUserData();
 
-        // Встановлення тексту назви пристрою та додаткової інформації
-        deviceNameText.setText(deviceName);
+        findViewById(R.id.nav_home).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // Refreshing activity
 
-        // Обробник натискання кнопки "Видалити"
-        deleteButton.setOnClickListener(v -> {
-            devicesListContainer.removeView(deviceView);
-            // Показати кнопку "Додати" знову, якщо немає більше пристроїв
-            if (devicesListContainer.getChildCount() == 0) {
-                addDeviceButton.setVisibility(View.VISIBLE);
+                startActivity(new Intent(UserActivity.this, MainActivity.class));
             }
         });
 
-        // Додаємо вигляд пристрою до контейнера та відображаємо його
-        devicesListContainer.setVisibility(View.VISIBLE);
-        devicesListContainer.addView(deviceView);
+        // Setting up a clicker handler for a button "User"
+        findViewById(R.id.nav_user).setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                // move on to activity UserActivity
+                finish();
+                startActivity(new Intent(UserActivity.this, UserActivity.class));
+            }
+        });
     }
+
+
+    private void loadUserData() {
+        String userId = currentUser.getUid();
+        databaseRef = FirebaseDatabase.getInstance().getReference("users").child(userId);
+
+        databaseRef.addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    // Отримуємо дані користувача
+                    String nickname = snapshot.child("nickname").getValue(String.class);
+                    String email = snapshot.child("email").getValue(String.class);
+                    String photoUrl = snapshot.child("photoUrl").getValue(String.class);
+                    String phoneNumber = snapshot.child("phone number").getValue(String.class);
+
+                    // Відображаємо дані
+                    nicknameTextView.setText(nickname != null ? nickname : "Noname");
+                    emailTextView.setText(email != null ? "Email: " + email : " ");
+                    numberTextView.setText(phoneNumber != null ? "Phone: " + phoneNumber : " ");
+
+                    if (photoUrl != null) {
+                        // Завантажуємо фото профілю з використанням Glide
+                        Glide.with(UserActivity.this)
+                                .load(photoUrl)
+                                .placeholder(R.drawable.profile_placeholder) // Зображення за замовчуванням
+                                .circleCrop()
+                                .into(profileImageView);
+                    }
+                } else {
+                    Toast.makeText(UserActivity.this, "Дані користувача не знайдено в базі", Toast.LENGTH_SHORT).show();
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("UserActivity", "Помилка зчитування даних користувача", error.toException());
+                Toast.makeText(UserActivity.this, "Помилка зчитування даних", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+
 }
 

@@ -36,9 +36,13 @@ dependencies {
     implementation libs.material
     implementation libs.activity
     implementation libs.constraintlayout
-    implementation(platform("com.google.firebase:firebase-bom:33.5.1"))
-    implementation("com.google.firebase:firebase-database")
-    implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'
+    implementation(platform("com.google.firebase:firebase-bom:33.5.1")) //firebase
+    implementation("com.google.firebase:firebase-database")    //firebase
+    implementation 'com.google.firebase:firebase-auth:23.1.0' //firebase
+    implementation 'com.google.android.gms:play-services-auth:20.2.0' //firebase auth with google
+    implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0'  // charts
+    implementation "com.github.bumptech.glide:glide:4.11.0"    // simplify loading of images by url
+    implementation 'com.google.android.material:material:1.8.0' // library with styles
     testImplementation libs.junit
     androidTestImplementation libs.ext.junit
     androidTestImplementation libs.espresso.core

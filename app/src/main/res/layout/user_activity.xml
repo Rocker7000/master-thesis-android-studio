@@ -3,19 +3,34 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#F5F5F5">
+    android:background="#EBF2FA">
 
     <!-- Фото профілю прикріплене до верхньої частини -->
-    <ImageView
-        android:id="@+id/profileImage"
-        android:layout_width="100dp"
-        android:layout_height="100dp"
-        android:layout_marginTop="16dp"
-        android:scaleType="centerCrop"
-        android:background="@drawable/profile_placeholder"
+
+
+    <androidx.cardview.widget.CardView
+        xmlns:app="http://schemas.android.com/apk/res-auto"
+        android:id="@+id/profilePlaceholder"
+        android:layout_width="120dp"
+        android:layout_height="120dp"
+        android:layout_gravity="center"
+        android:layout_marginTop="10dp"
+        app:cardBackgroundColor="#0E000000"
+        app:cardCornerRadius="60dp"
+        app:cardElevation="10dp"
         app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent" />
+        app:layout_constraintEnd_toEndOf="parent">
+
+    <ImageView
+        android:id="@+id/profileImage"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:layout_marginBottom="3dp"
+        android:layout_marginEnd="3dp"
+        android:scaleType="centerCrop" />
+
+</androidx.cardview.widget.CardView>
 
     <!-- Нікнейм користувача -->
     <TextView
@@ -26,8 +41,7 @@
         android:textSize="20sp"
         android:textColor="#333333"
         android:layout_marginTop="8dp"
-
-        app:layout_constraintTop_toBottomOf="@id/profileImage"
+        app:layout_constraintTop_toBottomOf="@id/profilePlaceholder"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent" />
 
@@ -59,6 +73,7 @@
             android:layout_marginBottom="4dp"/>
 
         <TextView
+            android:id="@+id/emailText"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Email: user@example.com"
@@ -70,6 +85,7 @@
             android:layout_marginBottom="4dp"/>
 
         <TextView
+            android:id="@+id/phoneNumber"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:text="Phone: +1234567890"
@@ -134,5 +150,52 @@
             android:orientation="vertical"
             android:visibility="gone"/>
     </LinearLayout>
+    <LinearLayout
+        android:id="@+id/custom_navigation"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_gravity="bottom"
+        android:orientation="horizontal"
+        android:background="#F4F4F8"
+        android:layout_margin="5dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        android:elevation="8dp">
 
+        <!-- Кнопка Home -->
+        <LinearLayout
+            android:id="@+id/nav_home"
+            android:clickable="true"
+            android:background="@drawable/custom_menu_buttons"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="4dp">
+
+            <ImageView
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:src="@drawable/home" />
+
+        </LinearLayout>
+
+        <!-- Кнопка User -->
+        <LinearLayout
+            android:id="@+id/nav_user"
+            android:clickable="true"
+            android:background="@drawable/custom_menu_buttons"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical"
+            android:gravity="center"
+            android:paddingVertical="4dp">
+
+            <ImageView
+                android:layout_width="50dp"
+                android:layout_height="50dp"
+                android:src="@drawable/user" />
+        </LinearLayout>
+    </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

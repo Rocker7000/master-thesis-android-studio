@@ -4,9 +4,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
-import android.widget.TextView;
-import android.widget.Toast;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -19,6 +16,8 @@ import com.github.mikephil.charting.data.BarData;
 import com.github.mikephil.charting.data.BarDataSet;
 import com.github.mikephil.charting.data.BarEntry;
 import com.github.mikephil.charting.formatter.ValueFormatter;
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
@@ -39,14 +38,27 @@ public class MainActivity extends AppCompatActivity {
     DatabaseReference databaseRef;
     private BarChart barChart;
     private Map<String, Float> dailyTotalsMap;
-    private TextView button1;
     private int daysLoaded = 0;
     private static final int TWO_WEEK_DAYS = 14 ;
-
+    private FirebaseAuth mAuth;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+
+        mAuth = FirebaseAuth.getInstance();
+        FirebaseUser currentUser = mAuth.getCurrentUser();
+        if (currentUser == null) {
+            // Користувач не авторизований, перенаправляємо на екран авторизації
+            startActivity(new Intent(MainActivity.this, LoginActivity.class));
+            finish(); // Закриваємо MainActivity, щоб не було повернення сюди
+            return;
+        } else {
+            saveUserToDatabaseIfNotExists(currentUser);
+        }
+
+
+
         setContentView(R.layout.activity_main);
 
         FullDayEnergyUsageSimulator simulator = new FullDayEnergyUsageSimulator();
@@ -54,29 +66,65 @@ public class MainActivity extends AppCompatActivity {
         barChart = findViewById(R.id.barChart);
         databaseRef = FirebaseDatabase.getInstance().getReference("houseEnergyUsage");
 
-        dailyTotalsMap = new LinkedHashMap<>(); // Використовуємо LinkedHashMap для збереження порядку додавання
+        dailyTotalsMap = new LinkedHashMap<>(); // Use of LinkedHashMap for saving addiction order
 
-        // Завантажуємо дані для останніх 14 днів
+        // Loading data for last two weeks
         loadLastNDaysData(TWO_WEEK_DAYS);
 
         findViewById(R.id.nav_home).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Оновлюємо цю активність
+                // Refreshing activity
                 finish();
                 startActivity(new Intent(MainActivity.this, MainActivity.class));
             }
         });
 
-        // Налаштування обробника натискань для кнопки "User"
+        // Setting up a clicker handler for a button "User"
         findViewById(R.id.nav_user).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Переходимо до активності UserActivity
+                // move on to activity UserActivity
+                finish();
                 startActivity(new Intent(MainActivity.this, UserActivity.class));
             }
         });
 
+    }
+
+    private void saveUserToDatabaseIfNotExists(FirebaseUser user) {
+        DatabaseReference databaseRef = FirebaseDatabase.getInstance().getReference("users");
+        String userId = user.getUid();
+
+        databaseRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (!snapshot.exists()) {
+                    // Користувача ще немає, створюємо новий запис
+                    Map<String, Object> userData = new HashMap<>();
+                    userData.put("nickname", user.getDisplayName());
+                    userData.put("email", user.getEmail());
+                    userData.put("phone number", user.getPhoneNumber());
+                    userData.put("photoUrl", user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : "");
+
+                    databaseRef.child(userId).setValue(userData)
+                            .addOnCompleteListener(task -> {
+                                if (task.isSuccessful()) {
+                                    Log.d("MainActivity", "Дані користувача збережені у базі.");
+                                } else {
+                                    Log.e("MainActivity", "Помилка збереження даних користувача", task.getException());
+                                }
+                            });
+                } else {
+                    Log.d("MainActivity", "Користувач вже існує в базі даних.");
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("MainActivity", "Помилка зчитування даних користувача з бази даних", error.toException());
+            }
+        });
     }
 
 
@@ -84,13 +132,13 @@ public class MainActivity extends AppCompatActivity {
         Calendar calendar = Calendar.getInstance();
         SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
 
-        // Ініціалізація змінної для контролю кількості днів з даними
-        final int[] daysToLoad = {0}; // Масив для забезпечення доступу в анонімних класах
+        // Initialize a variable to control the number of days with data
+        final int[] daysToLoad = {0}; // An array to provide access in anonymous classes
 
-        // Цикл для завантаження даних останніх numDays
+        // A loop to load data from the last numDays
         for (int day = 0; day < numDays; day++) {
             String date = dateFormat.format(calendar.getTime());
-            dailyTotalsMap.put(date, 0.0f); // Ініціалізуємо значення для дати
+            dailyTotalsMap.put(date, 0.0f);
 
             // Завантаження даних для кожного дня
             databaseRef.child(date).addListenerForSingleValueEvent(new ValueEventListener() {
