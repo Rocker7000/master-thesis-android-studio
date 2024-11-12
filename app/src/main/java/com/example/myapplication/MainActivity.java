@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.widget.LinearLayout;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -36,11 +37,22 @@ import java.util.Map;
 public class MainActivity extends AppCompatActivity {
 
     DatabaseReference databaseRef;
+    private FirebaseAuth mAuth;
+
     private BarChart barChart;
     private Map<String, Float> dailyTotalsMap;
+    private View loadingView, contentLayout;
     private int daysLoaded = 0;
     private static final int TWO_WEEK_DAYS = 14 ;
-    private FirebaseAuth mAuth;
+
+
+//TODO 1.Змінити налаштування загрузки щоб при переході на іншу сторінку з MainActivity сторінка зберігалась щоб не
+// завантажувати її знову.
+// 2. Доналаштувати завантаження графіка на головній сторінці замість цілої сторінки
+// 3. змінити структура бази данних щоб кожен користувач містив інформацію про споживання СВОЇХ девайсів
+// 4. налаштувати сторінки для кнопок Monitoring, Statistics, Analysis
+// 5. По можливості приєднати ChatGPT для сторінки Analysis
+// 6. витягувати дані через юзер айді а не просто дані без юзера
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -57,37 +69,42 @@ public class MainActivity extends AppCompatActivity {
             saveUserToDatabaseIfNotExists(currentUser);
         }
 
-
-
         setContentView(R.layout.activity_main);
 
-        FullDayEnergyUsageSimulator simulator = new FullDayEnergyUsageSimulator();
 
+
+        FullDayEnergyUsageSimulator simulator = new FullDayEnergyUsageSimulator();
+        loadingView = findViewById(R.id.loading_view);
+        contentLayout = findViewById(R.id.contentLayout);
         barChart = findViewById(R.id.barChart);
+
+
         databaseRef = FirebaseDatabase.getInstance().getReference("houseEnergyUsage");
 
         dailyTotalsMap = new LinkedHashMap<>(); // Use of LinkedHashMap for saving addiction order
 
+        loadingView.setVisibility(View.VISIBLE);
+        contentLayout.setVisibility(View.GONE);
+
         // Loading data for last two weeks
         loadLastNDaysData(TWO_WEEK_DAYS);
 
-        findViewById(R.id.nav_home).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // Refreshing activity
-                finish();
-                startActivity(new Intent(MainActivity.this, MainActivity.class));
-            }
+        //middle panel buttons
+        findViewById(R.id.monitoring_button).setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, MonitoringActivity.class);
+            startActivity(intent);
         });
 
-        // Setting up a clicker handler for a button "User"
-        findViewById(R.id.nav_user).setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                // move on to activity UserActivity
-                finish();
-                startActivity(new Intent(MainActivity.this, UserActivity.class));
-            }
+        findViewById(R.id.statics_button).setOnClickListener(v -> {
+            Intent intent = new Intent(MainActivity.this, StatisticsActivity.class);
+            startActivity(intent);
+        });
+
+        findViewById(R.id.nav_home).setOnClickListener(v -> recreate());
+        findViewById(R.id.nav_user).setOnClickListener(v -> {
+            startActivity(new Intent(MainActivity.this, UserActivity.class));
+            overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+            finish();
         });
 
     }
@@ -166,6 +183,8 @@ public class MainActivity extends AppCompatActivity {
                     // Якщо всі дні завантажено, відображаємо графік
                     if (daysLoaded == numDays) {
                         displayBarChart();
+                        loadingView.setVisibility(View.GONE);
+                        contentLayout.setVisibility(View.VISIBLE);
                     }
                 }
 
@@ -266,3 +285,4 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 }
+

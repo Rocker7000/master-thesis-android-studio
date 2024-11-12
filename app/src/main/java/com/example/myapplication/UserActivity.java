@@ -4,6 +4,8 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
+import android.view.animation.AlphaAnimation;
+import android.view.animation.Animation;
 import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -29,6 +31,7 @@ public class UserActivity extends AppCompatActivity {
     private TextView nicknameTextView, emailTextView, numberTextView;
     private DatabaseReference databaseRef;
     private FirebaseUser currentUser;
+    private View loadingView, contentLayout;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,6 +43,8 @@ public class UserActivity extends AppCompatActivity {
         nicknameTextView = findViewById(R.id.nicknameText);
         emailTextView = findViewById(R.id.emailText);
         numberTextView = findViewById(R.id.phoneNumber);
+        loadingView = findViewById(R.id.loadingProgressBar);
+        contentLayout = findViewById(R.id.contentLayout);
 
         currentUser = FirebaseAuth.getInstance().getCurrentUser();
 
@@ -48,25 +53,25 @@ public class UserActivity extends AppCompatActivity {
         findViewById(R.id.nav_home).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // Refreshing activity
-
                 startActivity(new Intent(UserActivity.this, MainActivity.class));
+                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+                finish();
             }
         });
 
-        // Setting up a clicker handler for a button "User"
         findViewById(R.id.nav_user).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
-                // move on to activity UserActivity
-                finish();
-                startActivity(new Intent(UserActivity.this, UserActivity.class));
+                recreate();
             }
         });
     }
 
 
     private void loadUserData() {
+        loadingView.setVisibility(View.VISIBLE);
+        contentLayout.setVisibility(View.GONE);
+
         String userId = currentUser.getUid();
         databaseRef = FirebaseDatabase.getInstance().getReference("users").child(userId);
 
@@ -93,6 +98,8 @@ public class UserActivity extends AppCompatActivity {
                                 .circleCrop()
                                 .into(profileImageView);
                     }
+                    loadingView.setVisibility(View.GONE);
+                    showContentWithAnimation();
                 } else {
                     Toast.makeText(UserActivity.this, "Дані користувача не знайдено в базі", Toast.LENGTH_SHORT).show();
                 }
@@ -106,6 +113,12 @@ public class UserActivity extends AppCompatActivity {
         });
     }
 
+    private void showContentWithAnimation() {
+        contentLayout.setVisibility(View.VISIBLE);
+        Animation fadeIn = new AlphaAnimation(0, 1);
+        fadeIn.setDuration(500);
+        contentLayout.startAnimation(fadeIn);
+    }
 
 }
 

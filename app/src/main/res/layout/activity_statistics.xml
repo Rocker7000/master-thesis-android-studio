@@ -1,0 +1,61 @@
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:orientation="vertical"
+    android:background="#EBF2FA">
+
+    <!-- Toolbar with back arrow and title -->
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="?attr/actionBarSize"
+        android:background="?attr/colorPrimary"
+        android:theme="?attr/actionBarTheme" />
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:padding="16dp">
+
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
+            <!-- Daily Summary Text -->
+            <TextView
+                android:id="@+id/tv_daily_summary"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Energy usage today is 10% lower than yesterday"
+                android:textSize="18sp"
+                android:layout_marginBottom="16dp"
+                android:textColor="?android:attr/textColorPrimary" />
+
+            <!-- Line Chart for Energy Trends -->
+            <com.github.mikephil.charting.charts.LineChart
+                android:id="@+id/lineChart"
+                android:layout_width="match_parent"
+                android:layout_height="300dp"
+                android:layout_marginBottom="16dp" />
+
+            <!-- Description for Device Comparison -->
+            <TextView
+                android:id="@+id/tv_device_comparison_desc"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Device-wise energy usage comparison between today and yesterday"
+                android:textSize="16sp"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="8dp" />
+
+            <!-- Bar Chart for Device Comparison -->
+            <com.github.mikephil.charting.charts.BarChart
+                android:id="@+id/barChart"
+                android:layout_width="match_parent"
+                android:layout_height="300dp"
+                android:layout_marginBottom="16dp" />
+        </LinearLayout>
+    </ScrollView>
+</LinearLayout>

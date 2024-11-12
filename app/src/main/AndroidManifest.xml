@@ -25,6 +25,8 @@
         </activity>
         <activity android:name=".UserActivity" />
         <activity android:name=".LoginActivity" />
+        <activity android:name=".MonitoringActivity" />
+        <activity android:name=".StatisticsActivity" />
     </application>
 
 </manifest>
