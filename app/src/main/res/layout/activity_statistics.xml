@@ -1,11 +1,12 @@
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:orientation="vertical"
     android:background="#EBF2FA">
 
-    <!-- Toolbar with back arrow and title -->
+    <!-- Toolbar з іконкою повернення і заголовком -->
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="match_parent"
@@ -23,39 +24,95 @@
             android:layout_height="wrap_content"
             android:orientation="vertical">
 
-            <!-- Daily Summary Text -->
-            <TextView
-                android:id="@+id/tv_daily_summary"
+            <!-- Щоденний звіт у картці -->
+            <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Energy usage today is 10% lower than yesterday"
-                android:textSize="18sp"
                 android:layout_marginBottom="16dp"
-                android:textColor="?android:attr/textColorPrimary" />
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="8dp">
 
-            <!-- Line Chart for Energy Trends -->
-            <com.github.mikephil.charting.charts.LineChart
-                android:id="@+id/lineChart"
-                android:layout_width="match_parent"
-                android:layout_height="300dp"
-                android:layout_marginBottom="16dp" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
 
-            <!-- Description for Device Comparison -->
-            <TextView
-                android:id="@+id/tv_device_comparison_desc"
+                    <!-- Заголовок з іконкою -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <ImageView
+                            android:layout_width="24dp"
+                            android:layout_height="24dp"
+                            android:src="@drawable/battery"
+                            app:tint="?android:attr/textColorPrimary" />
+
+                        <TextView
+                            android:id="@+id/tv_daily_summary"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            android:layout_marginStart="8dp"
+                            android:text="Energy usage today is 10% lower than yesterday"
+                            android:textSize="18sp"
+                            android:textColor="?android:attr/textColorPrimary" />
+                    </LinearLayout>
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Лінійний графік у картці -->
+            <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:text="Device-wise energy usage comparison between today and yesterday"
-                android:textSize="16sp"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="8dp" />
+                android:layout_marginBottom="16dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="8dp">
 
-            <!-- Bar Chart for Device Comparison -->
-            <com.github.mikephil.charting.charts.BarChart
-                android:id="@+id/barChart"
+                <com.github.mikephil.charting.charts.LineChart
+                    android:id="@+id/lineChart"
+                    android:layout_width="match_parent"
+                    android:layout_height="300dp"
+                    android:padding="8dp" />
+            </androidx.cardview.widget.CardView>
+
+            <!-- Опис порівняння пристроїв у картці -->
+            <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
-                android:layout_height="300dp"
-                android:layout_marginBottom="16dp" />
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <TextView
+                        android:id="@+id/tv_device_comparison_desc"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:text="Device-wise energy usage comparison between today and yesterday"
+                        android:textSize="16sp"
+                        android:layout_marginBottom="8dp"
+                        android:textColor="?android:attr/textColorPrimary" />
+
+                    <!-- Бар-графік -->
+                    <com.github.mikephil.charting.charts.BarChart
+                        android:id="@+id/barChart"
+                        android:layout_width="match_parent"
+                        android:layout_height="300dp"
+                        android:layout_marginBottom="16dp" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
         </LinearLayout>
     </ScrollView>
 </LinearLayout>

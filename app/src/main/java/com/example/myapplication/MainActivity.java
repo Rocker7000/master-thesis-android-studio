@@ -4,7 +4,6 @@ import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
-import android.widget.LinearLayout;
 
 import androidx.appcompat.app.AppCompatActivity;
 
@@ -25,34 +24,17 @@ import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.ValueEventListener;
 
-import java.text.SimpleDateFormat;
 import java.util.ArrayList;
-import java.util.Calendar;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.Locale;
 import java.util.Map;
 
-
 public class MainActivity extends AppCompatActivity {
-
-    DatabaseReference databaseRef;
     private FirebaseAuth mAuth;
-
     private BarChart barChart;
-    private Map<String, Float> dailyTotalsMap;
     private View loadingView, contentLayout;
-    private int daysLoaded = 0;
-    private static final int TWO_WEEK_DAYS = 14 ;
-
-
-//TODO 1.Змінити налаштування загрузки щоб при переході на іншу сторінку з MainActivity сторінка зберігалась щоб не
-// завантажувати її знову.
-// 2. Доналаштувати завантаження графіка на головній сторінці замість цілої сторінки
-// 3. змінити структура бази данних щоб кожен користувач містив інформацію про споживання СВОЇХ девайсів
-// 4. налаштувати сторінки для кнопок Monitoring, Statistics, Analysis
-// 5. По можливості приєднати ChatGPT для сторінки Analysis
-// 6. витягувати дані через юзер айді а не просто дані без юзера
+    private static final int TWO_WEEK_DAYS = 14;
+    private EnergyUsageRepository energyUsageRepository;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -60,229 +42,140 @@ public class MainActivity extends AppCompatActivity {
 
         mAuth = FirebaseAuth.getInstance();
         FirebaseUser currentUser = mAuth.getCurrentUser();
+
         if (currentUser == null) {
-            // Користувач не авторизований, перенаправляємо на екран авторизації
-            startActivity(new Intent(MainActivity.this, LoginActivity.class));
-            finish(); // Закриваємо MainActivity, щоб не було повернення сюди
+            redirectToLogin();
             return;
-        } else {
-            saveUserToDatabaseIfNotExists(currentUser);
         }
 
         setContentView(R.layout.activity_main);
+        initViewComponents();
 
+        energyUsageRepository = EnergyUsageRepository.getInstance();
+        saveUserToDatabaseIfNotExists(currentUser);
+        loadAndDisplayData();
+        setupNavigationButtons();
+    }
 
+    private void redirectToLogin() {
+        startActivity(new Intent(MainActivity.this, LoginActivity.class));
+        finish();
+    }
 
-        FullDayEnergyUsageSimulator simulator = new FullDayEnergyUsageSimulator();
+    private void initViewComponents() {
         loadingView = findViewById(R.id.loading_view);
         contentLayout = findViewById(R.id.contentLayout);
         barChart = findViewById(R.id.barChart);
 
+        loadingView.setVisibility(View.GONE);
+        contentLayout.setVisibility(View.VISIBLE);
+    }
 
-        databaseRef = FirebaseDatabase.getInstance().getReference("houseEnergyUsage");
-
-        dailyTotalsMap = new LinkedHashMap<>(); // Use of LinkedHashMap for saving addiction order
-
-        loadingView.setVisibility(View.VISIBLE);
-        contentLayout.setVisibility(View.GONE);
-
-        // Loading data for last two weeks
-        loadLastNDaysData(TWO_WEEK_DAYS);
-
-        //middle panel buttons
-        findViewById(R.id.monitoring_button).setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, MonitoringActivity.class);
-            startActivity(intent);
-        });
-
-        findViewById(R.id.statics_button).setOnClickListener(v -> {
-            Intent intent = new Intent(MainActivity.this, StatisticsActivity.class);
-            startActivity(intent);
-        });
-
+    private void setupNavigationButtons() {
+        findViewById(R.id.monitoring_button).setOnClickListener(v -> startActivity(new Intent(this, MonitoringActivity.class)));
+        findViewById(R.id.statics_button).setOnClickListener(v -> startActivity(new Intent(this, StatisticsActivity.class)));
         findViewById(R.id.nav_home).setOnClickListener(v -> recreate());
         findViewById(R.id.nav_user).setOnClickListener(v -> {
-            startActivity(new Intent(MainActivity.this, UserActivity.class));
+            startActivity(new Intent(this, UserActivity.class));
             overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
             finish();
         });
+    }
 
+    private void loadAndDisplayData() {
+        loadingView.setVisibility(View.VISIBLE);
+        contentLayout.setVisibility(View.GONE);
+
+        if (energyUsageRepository.isDataLoaded()) {
+            displayBarChart();
+        } else {
+            energyUsageRepository.loadLastMonth(this::displayBarChart);
+        }
     }
 
     private void saveUserToDatabaseIfNotExists(FirebaseUser user) {
-        DatabaseReference databaseRef = FirebaseDatabase.getInstance().getReference("users");
-        String userId = user.getUid();
+        DatabaseReference userRef = FirebaseDatabase.getInstance().getReference("users").child(user.getUid());
 
-        databaseRef.child(userId).addListenerForSingleValueEvent(new ValueEventListener() {
+        userRef.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
                 if (!snapshot.exists()) {
-                    // Користувача ще немає, створюємо новий запис
                     Map<String, Object> userData = new HashMap<>();
                     userData.put("nickname", user.getDisplayName());
                     userData.put("email", user.getEmail());
                     userData.put("phone number", user.getPhoneNumber());
                     userData.put("photoUrl", user.getPhotoUrl() != null ? user.getPhotoUrl().toString() : "");
-
-                    databaseRef.child(userId).setValue(userData)
-                            .addOnCompleteListener(task -> {
-                                if (task.isSuccessful()) {
-                                    Log.d("MainActivity", "Дані користувача збережені у базі.");
-                                } else {
-                                    Log.e("MainActivity", "Помилка збереження даних користувача", task.getException());
-                                }
-                            });
+                    userRef.setValue(userData).addOnCompleteListener(task -> {
+                        if (task.isSuccessful()) {
+                            Log.d("MainActivity", "User data saved successfully.");
+                        } else {
+                            Log.e("MainActivity", "Error saving user data", task.getException());
+                        }
+                    });
                 } else {
-                    Log.d("MainActivity", "Користувач вже існує в базі даних.");
+                    Log.d("MainActivity", "User already exists in the database.");
                 }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Log.e("MainActivity", "Помилка зчитування даних користувача з бази даних", error.toException());
+                Log.e("MainActivity", "Failed to read user data", error.toException());
             }
         });
     }
 
-
-    private void loadLastNDaysData(int numDays) {
-        Calendar calendar = Calendar.getInstance();
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-
-        // Initialize a variable to control the number of days with data
-        final int[] daysToLoad = {0}; // An array to provide access in anonymous classes
-
-        // A loop to load data from the last numDays
-        for (int day = 0; day < numDays; day++) {
-            String date = dateFormat.format(calendar.getTime());
-            dailyTotalsMap.put(date, 0.0f);
-
-            // Завантаження даних для кожного дня
-            databaseRef.child(date).addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot snapshot) {
-                    float dailyTotal = 0.0f;
-
-                    // Якщо дані для цього дня є
-                    if (snapshot.exists()) {
-                        for (DataSnapshot timeSnapshot : snapshot.getChildren()) {
-                            for (DataSnapshot deviceSnapshot : timeSnapshot.getChildren()) {
-                                Double usage = deviceSnapshot.getValue(Double.class);
-                                if (usage != null) {
-                                    dailyTotal += usage;
-                                }
-                            }
-                        }
-
-                        // Зберігаємо дані в Map
-                        dailyTotalsMap.put(date, dailyTotal);
-                    }
-
-                    daysLoaded++;
-
-                    // Якщо всі дні завантажено, відображаємо графік
-                    if (daysLoaded == numDays) {
-                        displayBarChart();
-                        loadingView.setVisibility(View.GONE);
-                        contentLayout.setVisibility(View.VISIBLE);
-                    }
-                }
-
-                @Override
-                public void onCancelled(@NonNull DatabaseError error) {
-                    Log.e("Firebase", "Помилка завантаження даних", error.toException());
-                }
-            });
-
-            // Переходимо до попереднього дня
-            calendar.add(Calendar.DATE, -1);
-        }
-    }
-
     private void displayBarChart() {
+        // Use only last 14 days for displaying data
         ArrayList<BarEntry> barEntries = new ArrayList<>();
         ArrayList<String> dateLabels = new ArrayList<>();
         int index = 0;
 
-        // Фільтруємо тільки дні, для яких є дані
-        ArrayList<String> dates = new ArrayList<>(dailyTotalsMap.keySet());
-        for (String date : dates) {
-            float dailyTotal = dailyTotalsMap.get(date);
-            if (dailyTotal > 0.0f) {
-                barEntries.add(new BarEntry(index, dailyTotal));
-                dateLabels.add(date);  // Додаємо дату для відображення на осі X
-                index++;
+
+        // Get the last 14 days from the LinkedHashMap
+        LinkedHashMap<String, Float> dailyTotalsMap = new LinkedHashMap<>(energyUsageRepository.getDailyTotalsMap());
+
+        int size = dailyTotalsMap.size();
+        int start = Math.max(0, size - TWO_WEEK_DAYS);
+
+        ArrayList<String> keys = new ArrayList<>(dailyTotalsMap.keySet());
+        ArrayList<Float> values = new ArrayList<>(dailyTotalsMap.values());
+
+        for (int i = start; i < size; i++) {
+            String date = keys.get(i);
+            Float value = values.get(i);
+            if (value > 0) {
+                barEntries.add(new BarEntry(index++, value));
+                dateLabels.add(date);
             }
         }
-        BarDataSet barDataSet = new BarDataSet(barEntries, "Total energy consumption(Вт)");
 
-        // Встановлюємо кастомний колір для стовпців
-        barDataSet.setColor(0xFF2C7CD3); // #2C7CD3
-        barDataSet.setValueTextSize(10f); // Розмір тексту на стовпцях
+        BarDataSet barDataSet = new BarDataSet(barEntries, "Total energy consumption (W)");
+        barDataSet.setColor(0xFF2C7CD3);
+        barDataSet.setValueTextSize(10f);
 
-        BarData barData = new BarData(barDataSet);
+        barChart.setData(new BarData(barDataSet));
+        barChart.invalidate();
+        configureChart(dateLabels);
 
-        // Встановлюємо дані на графік
-        barChart.setData(barData);
-        barChart.invalidate(); // Оновлюємо графік
+        loadingView.setVisibility(View.GONE);
+        contentLayout.setVisibility(View.VISIBLE);
+    }
 
-        // Налаштування діаграми
+    private void configureChart(ArrayList<String> dateLabels) {
         barChart.getDescription().setEnabled(false);
-        barChart.setFitBars(true); // Діаграма заповнює простір
+        barChart.setFitBars(true);
 
-        // Налаштування осі X для відображення дат
         XAxis xAxis = barChart.getXAxis();
-        YAxis yAxis = barChart.getAxisLeft();
         xAxis.setValueFormatter(new ValueFormatter() {
             @Override
             public String getFormattedValue(float value) {
-                return dateLabels.get((int) value);  // Повертаємо дату для кожного стовпця
+                return dateLabels.get((int) value);
             }
         });
-
-        yAxis.setAxisMinimum(0f);
-        xAxis.setGranularity(1f); // Забезпечуємо, щоб кожен стовпець мав свою дату
+        xAxis.setGranularity(1f);
         xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
-    }
 
-    private void calculateTotalDailyUsage(String date) {
-        databaseRef = FirebaseDatabase.getInstance().getReference("houseEnergyUsage").child(date);
-
-        databaseRef.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                Map<String, Double> totalUsage = new HashMap<>();
-
-                for (DataSnapshot timeSnapshot : snapshot.getChildren()) {
-                    for (DataSnapshot deviceSnapshot : timeSnapshot.getChildren()) {
-                        String deviceName = deviceSnapshot.getKey();
-                        Double deviceUsage = deviceSnapshot.getValue(Double.class);
-
-                        if (deviceUsage != null) {
-                            // Додаємо споживання пристрою до загальної суми
-                            double currentTotal = totalUsage.getOrDefault(deviceName, 0.0);
-                            totalUsage.put(deviceName, currentTotal + deviceUsage);
-                        }
-                    }
-                }
-
-                // Логування загального споживання за кожним пристроєм
-                double grandTotal = 0.0;
-                for (Map.Entry<String, Double> entry : totalUsage.entrySet()) {
-                    String device = entry.getKey();
-                    Double usage = entry.getValue();
-                    Log.d("FireBaseListener", "Пристрій: " + device + ", Загальне споживання: " + usage + " Вт-год");
-
-                    grandTotal += usage;
-                }
-                Log.d("FireBaseListener", "Загальне споживання електроенергії за день: " + grandTotal + " Вт-год");
-            }
-
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Log.e("FireBaseListener", "Помилка зчитування даних: ", error.toException());
-           }
-        });
+        YAxis yAxis = barChart.getAxisLeft();
+        yAxis.setAxisMinimum(0f);
     }
 }
-

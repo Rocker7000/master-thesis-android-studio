@@ -2,6 +2,8 @@ package com.example.myapplication;
 
 import android.util.Log;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
 
@@ -16,13 +18,22 @@ public class FullDayEnergyUsageSimulator {
 
     private DatabaseReference databaseRef;
     private Random random;
+    private FirebaseUser user;
 
     public FullDayEnergyUsageSimulator() {
         FirebaseDatabase database = FirebaseDatabase.getInstance();
-        databaseRef = database.getReference("houseEnergyUsage");
+        databaseRef = database.getReference();
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        user = auth.getCurrentUser();
         random = new Random();
     }
+
     public void simulateDailyUsageFor(int day) {
+        if (user == null) {
+            Log.e("FirebaseEnergyUsage", "Користувач не авторизований");
+            return;
+        }
+
         Calendar calendar = Calendar.getInstance();
         calendar.set(Calendar.YEAR, Calendar.getInstance().get(Calendar.YEAR)); // Поточний рік
         calendar.set(Calendar.MONTH, Calendar.getInstance().get(Calendar.MONTH)); // Поточний місяць
@@ -44,6 +55,24 @@ public class FullDayEnergyUsageSimulator {
         int computerStartMorning = 6;                     // Комп'ютер працює зранку
         int computerStartEvening = 18 + random.nextInt(2); // Вечірнє включення комп'ютера
         int computerEndEvening = 23;
+
+        // Дані пристроїв
+        HashMap<String, String> devices = new HashMap<>();
+        devices.put("refrigerator", "refrigerator");
+        devices.put("computer", "computer");
+        devices.put("microwave", "microwave");
+        devices.put("washing_machine", "washing machine");
+        devices.put("lighting", "lighting");
+
+        // Записуємо дані пристроїв у Firebase
+        databaseRef.child("users").child(user.getUid()).child("Devices").setValue(devices)
+                .addOnCompleteListener(task -> {
+                    if (task.isSuccessful()) {
+                        Log.d("FirebaseEnergyUsage", "Дані пристроїв успішно збережено");
+                    } else {
+                        Log.e("FirebaseEnergyUsage", "Помилка запису пристроїв", task.getException());
+                    }
+                });
 
         for (int i = 0; i < 144; i++) {
             String time = new SimpleDateFormat("HH:mm", Locale.getDefault()).format(calendar.getTime());
@@ -93,7 +122,7 @@ public class FullDayEnergyUsageSimulator {
             usageData.put("lighting", lightingUsage);
 
             // Зберігаємо дані в Firebase
-            databaseRef.child(date).child(time).setValue(usageData)
+            databaseRef.child("users").child(user.getUid()).child("houseEnergyUsage").child(date).child(time).setValue(usageData)
                     .addOnCompleteListener(task -> {
                         if (task.isSuccessful()) {
                             Log.d("FirebaseEnergyUsage", "Дані успішно збережено: " + date + " " + time);

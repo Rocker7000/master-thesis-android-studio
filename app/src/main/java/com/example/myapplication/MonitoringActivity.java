@@ -16,14 +16,9 @@ import com.github.mikephil.charting.data.PieData;
 import com.github.mikephil.charting.data.PieDataSet;
 import com.github.mikephil.charting.data.PieEntry;
 import com.github.mikephil.charting.utils.ColorTemplate;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
 
 import java.util.ArrayList;
-import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -32,15 +27,15 @@ public class MonitoringActivity extends AppCompatActivity {
     private PieChart pieChart;
     private RecyclerView recyclerView;
     private DeviceAdapter deviceAdapter;
-    private DatabaseReference database;
+    private EnergyUsageRepository energyUsageRepository;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_monitoring);
 
-        // Initialize Firebase Database reference
-        database = FirebaseDatabase.getInstance().getReference("houseEnergyUsage");
+        // Initialize EnergyUsageRepository
+        energyUsageRepository = EnergyUsageRepository.getInstance();
 
         androidx.appcompat.widget.Toolbar toolbar = findViewById(R.id.toolbar);
         toolbar.setTitle("Energy Monitoring");
@@ -55,7 +50,7 @@ public class MonitoringActivity extends AppCompatActivity {
         recyclerView = findViewById(R.id.rvDevices);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
 
-        // Fetch and display data from Firebase
+        // Load data through the repository and update UI
         fetchAndDisplayData();
     }
 
@@ -72,55 +67,45 @@ public class MonitoringActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-
     private void fetchAndDisplayData() {
-        String dateKey = "2024-11-04";  // Define the date key to fetch data for
-        Map<String, Float> deviceUsageMap = new HashMap<>();  // Accumulator for each device's total usage
+        // Get the daily totals map from the repository
+        Map<String, Float> dailyTotalsMap = energyUsageRepository.getDailyTotalsMap();
 
-        // Fetch data for the specified date
-        database.child(dateKey).addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (snapshot.exists()) {
-                    for (DataSnapshot timeSnapshot : snapshot.getChildren()) {
-                        // Loop through each time entry
-                        for (DataSnapshot deviceSnapshot : timeSnapshot.getChildren()) {
-                            String device = deviceSnapshot.getKey();
-                            Float usage = deviceSnapshot.getValue(Float.class);
-                            if (device != null && usage != null) {
-                                // Accumulate usage for each device
-                                deviceUsageMap.put(device, deviceUsageMap.getOrDefault(device, 0f) + usage);
-                            }
-                        }
+        // Convert the map to a LinkedHashMap to maintain insertion order
+        LinkedHashMap<String, Float> linkedDailyTotalsMap = new LinkedHashMap<>(dailyTotalsMap);
+
+        // Get the last day from the LinkedHashMap
+        List<String> keys = new ArrayList<>(linkedDailyTotalsMap.keySet());
+        if (!keys.isEmpty()) {
+            String lastDate = keys.get(keys.size() - 1);
+            Map<String, Float> deviceUsageMap = energyUsageRepository.getDailyDeviceUsageMap().get(lastDate);
+
+            if (deviceUsageMap != null) {
+                List<DeviceData> devices = new ArrayList<>();
+                float totalUsage = linkedDailyTotalsMap.get(lastDate);
+
+                for (Map.Entry<String, Float> entry : deviceUsageMap.entrySet()) {
+                    String deviceName = entry.getKey();
+                    Float usage = entry.getValue();
+                    if (usage != null && totalUsage != 0) {
+                        float usagePercentage = (usage / totalUsage) * 100;
+                        devices.add(new DeviceData(deviceName, usagePercentage));
                     }
-
-                    // Calculate total usage to determine percentages
-                    float totalUsage = 0f;
-                    for (Float usage : deviceUsageMap.values()) {
-                        totalUsage += usage;
-                    }
-
-                    // Prepare list of DeviceData for adapter and pie chart
-                    List<DeviceData> deviceDataList = new ArrayList<>();
-                    for (Map.Entry<String, Float> entry : deviceUsageMap.entrySet()) {
-                        float usagePercentage = (entry.getValue() / totalUsage) * 100;
-                        deviceDataList.add(new DeviceData(entry.getKey(), usagePercentage));
-                    }
-
-                    // Update PieChart and RecyclerView
-                    setupPieChart(deviceDataList);
-                    deviceAdapter = new DeviceAdapter(deviceDataList);
-                    recyclerView.setAdapter(deviceAdapter);
-                } else {
-                    Toast.makeText(MonitoringActivity.this, "No data found for date: " + dateKey, Toast.LENGTH_SHORT).show();
                 }
-            }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Log.e("MonitoringActivity", "Failed to read data from Firebase", error.toException());
+                setupPieChart(devices);
+                setupRecyclerView(devices);
+            } else {
+                Toast.makeText(this, "No data available for the last day", Toast.LENGTH_SHORT).show();
             }
-        });
+        } else {
+            Toast.makeText(this, "No data available", Toast.LENGTH_SHORT).show();
+        }
+    }
+
+    private void setupRecyclerView(List<DeviceData> devices) {
+        deviceAdapter = new DeviceAdapter(devices);
+        recyclerView.setAdapter(deviceAdapter);
     }
 
     private void setupPieChart(List<DeviceData> devices) {

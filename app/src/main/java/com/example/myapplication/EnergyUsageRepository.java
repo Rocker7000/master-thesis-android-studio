@@ -3,10 +3,13 @@ package com.example.myapplication;
 import android.util.Log;
 import androidx.annotation.NonNull;
 
+import com.google.firebase.auth.FirebaseAuth;
+import com.google.firebase.auth.FirebaseUser;
 import com.google.firebase.database.DataSnapshot;
 import com.google.firebase.database.DatabaseError;
 import com.google.firebase.database.DatabaseReference;
 import com.google.firebase.database.FirebaseDatabase;
+import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 
 import java.text.SimpleDateFormat;
@@ -15,7 +18,6 @@ import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
-import java.util.function.Consumer;
 
 public class EnergyUsageRepository {
 
@@ -23,10 +25,13 @@ public class EnergyUsageRepository {
     private final DatabaseReference databaseRef;
     private final Map<String, Float> dailyTotalsMap = new LinkedHashMap<>();
     private final Map<String, Map<String, Float>> dailyDeviceUsageMap = new HashMap<>();
-    private int daysLoaded = 0;
+    private boolean isDataLoaded = false;
+    private FirebaseUser user;
 
     private EnergyUsageRepository() {
-        databaseRef = FirebaseDatabase.getInstance().getReference("houseEnergyUsage");
+        databaseRef = FirebaseDatabase.getInstance().getReference();
+        FirebaseAuth auth = FirebaseAuth.getInstance();
+        user = auth.getCurrentUser();
     }
 
     public static synchronized EnergyUsageRepository getInstance() {
@@ -44,70 +49,68 @@ public class EnergyUsageRepository {
         return dailyDeviceUsageMap;
     }
 
-    public void loadAvailableDays(@NonNull Consumer<Integer> onDaysCountLoaded) {
-        databaseRef.addListenerForSingleValueEvent(new ValueEventListener() {
+    public boolean isDataLoaded() {
+        return isDataLoaded;
+    }
+
+    public void loadLastMonth(Runnable onComplete) {
+        if (user == null) {
+            Log.e("EnergyUsageRepository", "Користувач не авторизований");
+            if (onComplete != null) {
+                onComplete.run();
+            }
+            return;
+        }
+
+        if (isDataLoaded) {
+            if (onComplete != null) {
+                onComplete.run();
+            }
+            return;
+        }
+
+        dailyTotalsMap.clear();
+        dailyDeviceUsageMap.clear();
+
+        Query last30DaysQuery = databaseRef.child("users").child(user.getUid()).child("houseEnergyUsage").orderByKey().limitToLast(30);
+
+        last30DaysQuery.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
-                int availableDays = (int) snapshot.getChildrenCount();
-                int numDays = Math.min(availableDays, 30);  // Cap at 30 days
-                onDaysCountLoaded.accept(numDays);
+                for (DataSnapshot dateSnapshot : snapshot.getChildren()) {
+                    String date = dateSnapshot.getKey();
+                    float dailyTotal = 0.0f;
+                    Map<String, Float> deviceUsage = new HashMap<>();
+
+                    for (DataSnapshot timeSnapshot : dateSnapshot.getChildren()) {
+                        for (DataSnapshot deviceSnapshot : timeSnapshot.getChildren()) {
+                            String deviceName = deviceSnapshot.getKey();
+                            Double usage = deviceSnapshot.getValue(Double.class);
+
+                            if (usage != null) {
+                                dailyTotal += usage;
+                                deviceUsage.put(deviceName, deviceUsage.getOrDefault(deviceName, 0f) + usage.floatValue());
+                            }
+                        }
+                    }
+
+                    dailyTotalsMap.put(date, dailyTotal);
+                    dailyDeviceUsageMap.put(date, deviceUsage);
+                }
+
+                isDataLoaded = true;
+                if (onComplete != null) {
+                    onComplete.run();
+                }
             }
 
             @Override
             public void onCancelled(@NonNull DatabaseError error) {
-                Log.e("EnergyUsageRepository", "Failed to load days count", error.toException());
-                onDaysCountLoaded.accept(0);  // If there’s an error, default to 0 days
+                Log.e("EnergyUsageRepository", "Помилка завантаження даних", error.toException());
+                if (onComplete != null) {
+                    onComplete.run();
+                }
             }
         });
-    }
-
-    public void loadLastNDaysData(int numDays, Runnable onComplete) {
-        daysLoaded = 0;
-        dailyTotalsMap.clear();
-        dailyDeviceUsageMap.clear();
-
-        Calendar calendar = Calendar.getInstance();
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd", Locale.getDefault());
-
-        for (int day = 0; day < numDays; day++) {
-            String date = dateFormat.format(calendar.getTime());
-            dailyTotalsMap.put(date, 0.0f);
-            dailyDeviceUsageMap.put(date, new HashMap<>());
-
-            databaseRef.child(date).addListenerForSingleValueEvent(new ValueEventListener() {
-                @Override
-                public void onDataChange(@NonNull DataSnapshot snapshot) {
-                    float dailyTotal = 0.0f;
-                    Map<String, Float> deviceUsage = dailyDeviceUsageMap.get(date);
-
-                    if (snapshot.exists()) {
-                        for (DataSnapshot timeSnapshot : snapshot.getChildren()) {
-                            for (DataSnapshot deviceSnapshot : timeSnapshot.getChildren()) {
-                                String deviceName = deviceSnapshot.getKey();
-                                Double usage = deviceSnapshot.getValue(Double.class);
-
-                                if (usage != null) {
-                                    dailyTotal += usage;
-                                    deviceUsage.put(deviceName, deviceUsage.getOrDefault(deviceName, 0f) + usage.floatValue());
-                                }
-                            }
-                        }
-                        dailyTotalsMap.put(date, dailyTotal);
-                    }
-
-                    daysLoaded++;
-                    if (daysLoaded == numDays && onComplete != null) {
-                        onComplete.run();
-                    }
-                }
-
-                @Override
-                public void onCancelled(@NonNull DatabaseError error) {
-                    Log.e("EnergyUsageRepository", "Помилка завантаження даних", error.toException());
-                }
-            });
-
-            calendar.add(Calendar.DATE, -1);
-        }
     }
 }

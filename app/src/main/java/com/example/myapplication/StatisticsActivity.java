@@ -1,7 +1,10 @@
 package com.example.myapplication;
-
 import android.content.Intent;
+import android.graphics.Color;
 import android.os.Bundle;
+import android.text.Spannable;
+import android.text.SpannableString;
+import android.text.style.ForegroundColorSpan;
 import android.view.MenuItem;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -18,19 +21,11 @@ import com.github.mikephil.charting.data.LineData;
 import com.github.mikephil.charting.data.LineDataSet;
 import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.github.mikephil.charting.utils.ColorTemplate;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
-import java.time.LocalDate;
-import java.time.format.DateTimeFormatter;
+
 import java.util.ArrayList;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
 import java.util.TreeSet;
 
 public class StatisticsActivity extends AppCompatActivity {
@@ -38,7 +33,7 @@ public class StatisticsActivity extends AppCompatActivity {
     private LineChart lineChart;
     private BarChart barChart;
     private TextView tvDailySummary;
-    private DatabaseReference database;
+    private EnergyUsageRepository energyUsageRepository;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -54,15 +49,15 @@ public class StatisticsActivity extends AppCompatActivity {
             getSupportActionBar().setDisplayShowHomeEnabled(true);
         }
 
-        // Initialize Firebase Database reference
-        database = FirebaseDatabase.getInstance().getReference("houseEnergyUsage");
+        // Initialize EnergyUsageRepository instance
+        energyUsageRepository = EnergyUsageRepository.getInstance();
 
         // Initialize views
         lineChart = findViewById(R.id.lineChart);
         barChart = findViewById(R.id.barChart);
         tvDailySummary = findViewById(R.id.tv_daily_summary);
 
-        // Fetch and display statistics from Firebase
+        // Fetch and display statistics using the repository
         fetchAndDisplayStatistics();
     }
 
@@ -80,66 +75,61 @@ public class StatisticsActivity extends AppCompatActivity {
     }
 
     private void fetchAndDisplayStatistics() {
-        // Get today's date and yesterday's date
-        LocalDate today = LocalDate.now();
-        LocalDate yesterday = today.minusDays(1);
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd");
-        String todayDate = today.format(formatter);
-        String yesterdayDate = yesterday.format(formatter);
+        // Get the daily totals map from the repository
+        LinkedHashMap<String, Float> dailyTotalsMap = new LinkedHashMap<>(energyUsageRepository.getDailyTotalsMap());
 
-        database.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (snapshot.exists()) {
-                    TreeMap<String, Float> dailyUsageMap = new TreeMap<>();
-                    Map<String, Float> todayDeviceUsage = new TreeMap<>();
-                    Map<String, Float> yesterdayDeviceUsage = new TreeMap<>();
+        // Get the daily device usage map from the repository
+        Map<String, Map<String, Float>> dailyDeviceUsageMap = energyUsageRepository.getDailyDeviceUsageMap();
 
-                    for (DataSnapshot daySnapshot : snapshot.getChildren()) {
-                        String date = daySnapshot.getKey();
-                        float totalUsageForDay = 0f;
-                        Map<String, Float> deviceUsageMap = date.equals(todayDate) ? todayDeviceUsage : date.equals(yesterdayDate) ? yesterdayDeviceUsage : null;
+        // Get the last two days from the LinkedHashMap
+        List<String> keys = new ArrayList<>(dailyTotalsMap.keySet());
+        if (keys.size() >= 2) {
+            String todayDate = keys.get(0);
+            String yesterdayDate = keys.get(1);
 
-                        for (DataSnapshot timeSnapshot : daySnapshot.getChildren()) {
-                            for (DataSnapshot deviceSnapshot : timeSnapshot.getChildren()) {
-                                String device = deviceSnapshot.getKey();
-                                Float usage = deviceSnapshot.getValue(Float.class);
-                                if (usage != null) {
-                                    totalUsageForDay += usage;
-                                    if (deviceUsageMap != null) {
-                                        deviceUsageMap.put(device, deviceUsageMap.getOrDefault(device, 0f) + usage);
-                                    }
-                                }
-                            }
-                        }
-                        dailyUsageMap.put(date, totalUsageForDay);
-                    }
+            // Calculate and display daily summary
+            calculateDailySummary(dailyTotalsMap, todayDate, yesterdayDate);
 
-                    calculateDailySummary(dailyUsageMap);
-                    setupLineChart(dailyUsageMap);
-                    setupBarChart(todayDeviceUsage, yesterdayDeviceUsage);
-                } else {
-                    Toast.makeText(StatisticsActivity.this, "No data found", Toast.LENGTH_SHORT).show();
-                }
-            }
+            // Setup line chart with daily totals
+            setupLineChart(dailyTotalsMap);
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Toast.makeText(StatisticsActivity.this, "Failed to load data", Toast.LENGTH_SHORT).show();
-            }
-        });
+            // Setup bar chart with today's and yesterday's device usage
+            Map<String, Float> todayUsage = dailyDeviceUsageMap.get(todayDate);
+            Map<String, Float> yesterdayUsage = dailyDeviceUsageMap.get(yesterdayDate);
+            setupBarChart(todayUsage, yesterdayUsage);
+        } else {
+            Toast.makeText(this, "Insufficient data for statistics", Toast.LENGTH_SHORT).show();
+        }
     }
 
-    private void calculateDailySummary(Map<String, Float> dailyUsageMap) {
-        if (dailyUsageMap.size() >= 2) {
-            List<Float> usageValues = new ArrayList<>(dailyUsageMap.values());
-            float todayUsage = usageValues.get(usageValues.size() - 1);
-            float yesterdayUsage = usageValues.get(usageValues.size() - 2);
 
+
+    private void calculateDailySummary(Map<String, Float> dailyUsageMap, String todayDate, String yesterdayDate) {
+        Float todayUsage = dailyUsageMap.get(todayDate);
+        Float yesterdayUsage = dailyUsageMap.get(yesterdayDate);
+
+        if (todayUsage != null && yesterdayUsage != null && yesterdayUsage > 0) {
             float difference = ((todayUsage - yesterdayUsage) / yesterdayUsage) * 100;
+            boolean isLess = difference < 0;
+            String statusText = isLess ? "less" : "higher";
+
+            // Create summary text with both the percentage and status word highlighted
             String summaryText = String.format("Energy usage today is %.1f%% %s than yesterday",
-                    Math.abs(difference), difference < 0 ? "lower" : "higher");
-            tvDailySummary.setText(summaryText);
+                    Math.abs(difference), statusText);
+
+            Spannable spannable = new SpannableString(summaryText);
+
+            // Highlight percentage and status word
+            int percentStart = summaryText.indexOf(String.format("%.1f%%", Math.abs(difference)));
+            int percentEnd = percentStart + String.format("%.1f%%", Math.abs(difference)).length();
+            int statusStart = summaryText.indexOf(statusText);
+            int statusEnd = statusStart + statusText.length();
+
+            int color = isLess ? Color.GREEN : Color.RED;
+            spannable.setSpan(new ForegroundColorSpan(color), percentStart, percentEnd, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+            spannable.setSpan(new ForegroundColorSpan(color), statusStart, statusEnd, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE);
+
+            tvDailySummary.setText(spannable);
         } else {
             tvDailySummary.setText("Insufficient data for comparison");
         }
@@ -154,8 +144,8 @@ public class StatisticsActivity extends AppCompatActivity {
         }
 
         LineDataSet dataSet = new LineDataSet(entries, "Daily Energy Usage");
-        dataSet.setColor(ColorTemplate.rgb("#00000"));
-        dataSet.setValueTextColor(android.graphics.Color.BLACK);
+        dataSet.setColor(ColorTemplate.rgb("#000000"));
+        dataSet.setValueTextColor(Color.BLACK);
 
         LineData lineData = new LineData(dataSet);
         lineChart.setData(lineData);
@@ -164,22 +154,21 @@ public class StatisticsActivity extends AppCompatActivity {
     }
 
     private void setupBarChart(Map<String, Float> todayUsage, Map<String, Float> yesterdayUsage) {
+        if (todayUsage == null || yesterdayUsage == null) return;
+
         List<BarEntry> todayEntries = new ArrayList<>();
         List<BarEntry> yesterdayEntries = new ArrayList<>();
 
-        // Get all unique device names to ensure both today and yesterday are included
+        // Get all unique device names for consistent indexing in the chart
         TreeSet<String> allDevices = new TreeSet<>(todayUsage.keySet());
         allDevices.addAll(yesterdayUsage.keySet());
 
         int index = 0;
         for (String device : allDevices) {
-            // Create entries, using 0f for any missing device data
             todayEntries.add(new BarEntry(index, todayUsage.getOrDefault(device, 0f)));
             yesterdayEntries.add(new BarEntry(index, yesterdayUsage.getOrDefault(device, 0f)));
             index++;
         }
-
-
 
         BarDataSet todayDataSet = new BarDataSet(todayEntries, "Today");
         todayDataSet.setColor(ColorTemplate.rgb("#0000CD"));
@@ -187,23 +176,20 @@ public class StatisticsActivity extends AppCompatActivity {
         yesterdayDataSet.setColor(ColorTemplate.rgb("#B0E0E6"));
 
         BarData barData = new BarData(todayDataSet, yesterdayDataSet);
-        barData.setBarWidth(0.3f);  // Width for each bar
-        barData.setValueTextSize(10f);
-        // Configure chart to show groups for each device
+        barData.setBarWidth(0.3f);
+
         barChart.setData(barData);
 
-        // X-Axis configuration for labels and positioning
+        // X-Axis configuration for device names
         XAxis xAxis = barChart.getXAxis();
-        xAxis.setGranularity(1f);  // Ensure each device gets a label
-        xAxis.setCenterAxisLabels(true);  // Center labels between groups
+        xAxis.setGranularity(1f);
+        xAxis.setCenterAxisLabels(true);
         xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
         xAxis.setValueFormatter(new IndexAxisValueFormatter(new ArrayList<>(allDevices)));
 
-        // Group the bars (0f starting group, 0.4f group space, 0.05f bar space)
         barChart.groupBars(0f, 0.2f, 0.05f);
-
         barChart.getDescription().setEnabled(false);
         barChart.setFitBars(true);
-        barChart.invalidate();  // Refresh the chart
+        barChart.invalidate();
     }
 }
