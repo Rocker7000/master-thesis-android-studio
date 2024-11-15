@@ -1,6 +1,7 @@
 package com.example.myapplication;
 
 import android.content.Intent;
+import android.os.AsyncTask;
 import android.os.Bundle;
 import android.util.Log;
 import android.view.View;
@@ -8,6 +9,8 @@ import android.view.View;
 import androidx.appcompat.app.AppCompatActivity;
 
 import androidx.annotation.NonNull;
+import androidx.lifecycle.Observer;
+import androidx.lifecycle.ViewModelProvider;
 
 import com.github.mikephil.charting.charts.BarChart;
 import com.github.mikephil.charting.components.XAxis;
@@ -35,6 +38,7 @@ public class MainActivity extends AppCompatActivity {
     private View loadingView, contentLayout;
     private static final int TWO_WEEK_DAYS = 14;
     private EnergyUsageRepository energyUsageRepository;
+    private MainViewModel mainViewModel;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,9 +56,11 @@ public class MainActivity extends AppCompatActivity {
         initViewComponents();
 
         energyUsageRepository = EnergyUsageRepository.getInstance();
+        mainViewModel = new ViewModelProvider(this).get(MainViewModel.class);
+
         saveUserToDatabaseIfNotExists(currentUser);
-        loadAndDisplayData();
         setupNavigationButtons();
+        observeData();
     }
 
     private void redirectToLogin() {
@@ -82,15 +88,19 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void loadAndDisplayData() {
+
+    private void observeData() {
+        mainViewModel.getDailyTotalsMap().observe(this, new Observer<LinkedHashMap<String, Float>>() {
+            @Override
+            public void onChanged(LinkedHashMap<String, Float> dailyTotalsMap) {
+                displayBarChart(dailyTotalsMap);
+            }
+        });
+
         loadingView.setVisibility(View.VISIBLE);
         contentLayout.setVisibility(View.GONE);
 
-        if (energyUsageRepository.isDataLoaded()) {
-            displayBarChart();
-        } else {
-            energyUsageRepository.loadLastMonth(this::displayBarChart);
-        }
+        mainViewModel.loadLastMonthData();
     }
 
     private void saveUserToDatabaseIfNotExists(FirebaseUser user) {
@@ -124,15 +134,10 @@ public class MainActivity extends AppCompatActivity {
         });
     }
 
-    private void displayBarChart() {
-        // Use only last 14 days for displaying data
+    private void displayBarChart(LinkedHashMap<String, Float> dailyTotalsMap) {
         ArrayList<BarEntry> barEntries = new ArrayList<>();
         ArrayList<String> dateLabels = new ArrayList<>();
         int index = 0;
-
-
-        // Get the last 14 days from the LinkedHashMap
-        LinkedHashMap<String, Float> dailyTotalsMap = new LinkedHashMap<>(energyUsageRepository.getDailyTotalsMap());
 
         int size = dailyTotalsMap.size();
         int start = Math.max(0, size - TWO_WEEK_DAYS);
@@ -142,13 +147,13 @@ public class MainActivity extends AppCompatActivity {
 
         for (int i = start; i < size; i++) {
             String date = keys.get(i);
+            date = date.substring(8, 10) + "-" + date.substring(5, 7);
             Float value = values.get(i);
             if (value > 0) {
                 barEntries.add(new BarEntry(index++, value));
                 dateLabels.add(date);
             }
         }
-
         BarDataSet barDataSet = new BarDataSet(barEntries, "Total energy consumption (W)");
         barDataSet.setColor(0xFF2C7CD3);
         barDataSet.setValueTextSize(10f);
@@ -176,6 +181,10 @@ public class MainActivity extends AppCompatActivity {
         xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
 
         YAxis yAxis = barChart.getAxisLeft();
+        YAxis yAxisRight = barChart.getAxisRight();
+        yAxisRight.setEnabled(false);
         yAxis.setAxisMinimum(0f);
     }
+
+
 }
