@@ -11,9 +11,11 @@ import java.util.List;
 public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceViewHolder> {
 
     private final List<DeviceData> devices;
+    private final String unit;
 
-    public DeviceAdapter(List<DeviceData> devices) {
+    public DeviceAdapter(List<DeviceData> devices, String unit) {
         this.devices = devices;
+        this.unit = unit;
     }
 
     @NonNull
@@ -28,7 +30,13 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
     public void onBindViewHolder(@NonNull DeviceViewHolder holder, int position) {
         DeviceData device = devices.get(position);
         holder.tvDeviceName.setText(device.getName());
-        holder.tvUsage.setText(String.format("%.2f%%", device.getUsagePercentage()));
+
+
+        if ("kWt".equals(unit)) {
+            holder.tvUsage.setText(String.format("average: %.2f kWt", device.getUsagePercentage()));
+        } else if ("percentage".equals(unit)) {
+            holder.tvUsage.setText(String.format("%.2f%%", device.getUsagePercentage()));
+        }
     }
 
     @Override
@@ -42,8 +50,8 @@ public class DeviceAdapter extends RecyclerView.Adapter<DeviceAdapter.DeviceView
 
         public DeviceViewHolder(@NonNull View itemView) {
             super(itemView);
-            tvDeviceName = itemView.findViewById(R.id.tvDeviceName);
-            tvUsage = itemView.findViewById(R.id.tvUsage);
+            tvDeviceName = itemView.findViewById(R.id.deviceNameTextView);
+            tvUsage = itemView.findViewById(R.id.deviceUsageTextView);
         }
     }
 }

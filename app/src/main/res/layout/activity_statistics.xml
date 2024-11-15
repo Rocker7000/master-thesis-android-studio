@@ -64,23 +64,7 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- Лінійний графік у картці -->
-            <androidx.cardview.widget.CardView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginBottom="16dp"
-                app:cardElevation="4dp"
-                app:cardBackgroundColor="@android:color/white"
-                app:cardCornerRadius="8dp">
-
-                <com.github.mikephil.charting.charts.LineChart
-                    android:id="@+id/lineChart"
-                    android:layout_width="match_parent"
-                    android:layout_height="300dp"
-                    android:padding="8dp" />
-            </androidx.cardview.widget.CardView>
-
-            <!-- Опис порівняння пристроїв у картці -->
+            <!-- Лінійний графік у картці з Spinner -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -95,14 +79,60 @@
                     android:orientation="vertical"
                     android:padding="16dp">
 
-                    <TextView
-                        android:id="@+id/tv_device_comparison_desc"
+                    <!-- Лінійний графік -->
+                    <com.github.mikephil.charting.charts.LineChart
+                        android:id="@+id/lineChart"
+                        android:layout_width="match_parent"
+                        android:layout_height="300dp"
+                        android:padding="8dp" />
+                </LinearLayout>
+            </androidx.cardview.widget.CardView>
+
+            <!-- Опис порівняння пристроїв у картці з кнопкою для вибору значень -->
+            <androidx.cardview.widget.CardView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="16dp"
+                app:cardElevation="4dp"
+                app:cardBackgroundColor="@android:color/white"
+                app:cardCornerRadius="8dp">
+
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:padding="16dp">
+
+                    <LinearLayout
                         android:layout_width="match_parent"
                         android:layout_height="wrap_content"
-                        android:text="Device-wise energy usage comparison between today and yesterday"
-                        android:textSize="16sp"
-                        android:layout_marginBottom="8dp"
-                        android:textColor="?android:attr/textColorPrimary" />
+                        android:orientation="horizontal"
+                        android:gravity="center_vertical">
+
+                        <TextView
+                            android:id="@+id/tv_device_comparison_desc"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:layout_weight="6"
+                            android:text="Device-wise energy usage comparison between today and yesterday"
+                            android:textSize="16sp"
+                            android:textColor="?android:attr/textColorPrimary" />
+
+                        <!-- Styled Button with Default Value -->
+                        <TextView
+                            android:id="@+id/btn_select_value"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="2"
+                            android:text="1"
+                            android:textAlignment="center"
+                            android:background="@drawable/button_style"
+                            android:gravity="center"
+                            android:textSize="14sp"
+                            android:layout_marginTop="15dp"
+                            android:layout_marginBottom="15dp"
+                            android:textColor="?android:attr/textColorPrimary" />
+                    </LinearLayout>
 
                     <!-- Бар-графік -->
                     <com.github.mikephil.charting.charts.BarChart

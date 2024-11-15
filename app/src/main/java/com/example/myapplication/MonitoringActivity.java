@@ -104,7 +104,7 @@ public class MonitoringActivity extends AppCompatActivity {
     }
 
     private void setupRecyclerView(List<DeviceData> devices) {
-        deviceAdapter = new DeviceAdapter(devices);
+        deviceAdapter = new DeviceAdapter(devices, "percentage");
         recyclerView.setAdapter(deviceAdapter);
     }
 

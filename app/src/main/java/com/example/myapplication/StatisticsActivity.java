@@ -6,6 +6,9 @@ import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.ForegroundColorSpan;
 import android.view.MenuItem;
+import android.view.View;
+import android.widget.Button;
+import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
 import androidx.annotation.NonNull;
@@ -34,6 +37,8 @@ public class StatisticsActivity extends AppCompatActivity {
     private BarChart barChart;
     private TextView tvDailySummary;
     private EnergyUsageRepository energyUsageRepository;
+    private TextView btnSelectValue;
+    List<String> availableDates;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -51,14 +56,44 @@ public class StatisticsActivity extends AppCompatActivity {
 
         // Initialize EnergyUsageRepository instance
         energyUsageRepository = EnergyUsageRepository.getInstance();
-
+        availableDates = new ArrayList<>(energyUsageRepository.getDailyTotalsMap().keySet());
         // Initialize views
         lineChart = findViewById(R.id.lineChart);
         barChart = findViewById(R.id.barChart);
         tvDailySummary = findViewById(R.id.tv_daily_summary);
 
         // Fetch and display statistics using the repository
-        fetchAndDisplayStatistics();
+
+
+        // Initialize the button
+        btnSelectValue = findViewById(R.id.btn_select_value);
+
+        //set text to button to yesterday
+        if (availableDates.size() >= 2) {
+            btnSelectValue.setText(availableDates.get(availableDates.size() - 2));
+        }
+        updateCharts(availableDates.get(availableDates.size() - 2));
+        // Set up click listener to show the popup menu
+        btnSelectValue.setOnClickListener(this::showPopupMenu);
+    }
+
+    private void showPopupMenu(View view) {
+        // Create a PopupMenu
+        PopupMenu popupMenu = new PopupMenu(this, view);
+        for (int i = 0; i < availableDates.size(); i++) {
+            popupMenu.getMenu().add(0, i, 0, availableDates.get(i));
+        }
+
+        // Set click listener for menu items
+        popupMenu.setOnMenuItemClickListener(item -> {
+            String selectedDate = availableDates.get(item.getItemId());
+            btnSelectValue.setText(selectedDate);
+            updateCharts(selectedDate);
+            return true;
+        });
+
+        // Show the popup menu
+        popupMenu.show();
     }
 
     // Handle toolbar back button click to navigate to MainActivity
@@ -74,7 +109,7 @@ public class StatisticsActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    private void fetchAndDisplayStatistics() {
+    private void updateCharts(String selectedDate) {
         // Get the daily totals map from the repository
         LinkedHashMap<String, Float> dailyTotalsMap = new LinkedHashMap<>(energyUsageRepository.getDailyTotalsMap());
 
@@ -84,18 +119,17 @@ public class StatisticsActivity extends AppCompatActivity {
         // Get the last two days from the LinkedHashMap
         List<String> keys = new ArrayList<>(dailyTotalsMap.keySet());
         if (keys.size() >= 2) {
-            String todayDate = keys.get(0);
-            String yesterdayDate = keys.get(1);
+            String todayDate = keys.get(keys.size()-1);
 
             // Calculate and display daily summary
-            calculateDailySummary(dailyTotalsMap, todayDate, yesterdayDate);
+            calculateDailySummary(dailyTotalsMap, todayDate, selectedDate);
 
             // Setup line chart with daily totals
             setupLineChart(dailyTotalsMap);
 
             // Setup bar chart with today's and yesterday's device usage
             Map<String, Float> todayUsage = dailyDeviceUsageMap.get(todayDate);
-            Map<String, Float> yesterdayUsage = dailyDeviceUsageMap.get(yesterdayDate);
+            Map<String, Float> yesterdayUsage = dailyDeviceUsageMap.get(selectedDate);
             setupBarChart(todayUsage, yesterdayUsage);
         } else {
             Toast.makeText(this, "Insufficient data for statistics", Toast.LENGTH_SHORT).show();

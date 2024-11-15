@@ -13,6 +13,9 @@ public class DeviceData {
         return name;
     }
 
+    public void setUsagePercentage(float usagePercentage) {
+        this.usagePercentage = usagePercentage;
+    }
     public float getUsagePercentage() {
         return usagePercentage;
     }
