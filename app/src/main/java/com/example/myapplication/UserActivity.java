@@ -2,7 +2,7 @@ package com.example.myapplication;
 
 import android.content.Intent;
 import android.os.Bundle;
-import android.util.Log;
+
 import android.view.View;
 import android.view.animation.AlphaAnimation;
 import android.view.animation.Animation;
@@ -10,29 +10,27 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
-import androidx.annotation.NonNull;
-import androidx.annotation.StringDef;
 import androidx.appcompat.app.AppCompatActivity;
+import androidx.recyclerview.widget.LinearLayoutManager;
+import androidx.recyclerview.widget.RecyclerView;
 
 import com.bumptech.glide.Glide;
-import com.google.firebase.auth.FirebaseAuth;
-import com.google.firebase.auth.FirebaseUser;
-import com.google.firebase.database.DataSnapshot;
-import com.google.firebase.database.DatabaseError;
-import com.google.firebase.database.DatabaseReference;
-import com.google.firebase.database.FirebaseDatabase;
-import com.google.firebase.database.ValueEventListener;
 
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 public class UserActivity extends AppCompatActivity {
 
 
     private ImageView profileImageView;
     private TextView nicknameTextView, emailTextView, numberTextView;
-    private DatabaseReference databaseRef;
-    private FirebaseUser currentUser;
-    private View loadingView, contentLayout;
-
+    private EnergyUsageRepository userData ;
+    private View contentLayout;
+    private RecyclerView devicesRecyclerView;
+    private DeviceAdapter deviceAdapter;
+    private List<DeviceData> deviceList;
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -43,18 +41,23 @@ public class UserActivity extends AppCompatActivity {
         nicknameTextView = findViewById(R.id.nicknameText);
         emailTextView = findViewById(R.id.emailText);
         numberTextView = findViewById(R.id.phoneNumber);
-        loadingView = findViewById(R.id.loadingProgressBar);
         contentLayout = findViewById(R.id.contentLayout);
+        devicesRecyclerView = findViewById(R.id.devicesListContainer);
 
-        currentUser = FirebaseAuth.getInstance().getCurrentUser();
+        userData = EnergyUsageRepository.getInstance();
+        deviceList = new ArrayList<>();
+        deviceAdapter = new DeviceAdapter(deviceList, "kWt");
+        devicesRecyclerView.setLayoutManager(new LinearLayoutManager(this));
+        devicesRecyclerView.setAdapter(deviceAdapter);
 
         loadUserData();
+        loadDevicesData();
 
         findViewById(R.id.nav_home).setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 startActivity(new Intent(UserActivity.this, MainActivity.class));
-                overridePendingTransition(R.anim.slide_in_right, R.anim.slide_out_left);
+                overridePendingTransition(R.anim.slide_in_left, R.anim.slide_out_right);
                 finish();
             }
         });
@@ -67,50 +70,69 @@ public class UserActivity extends AppCompatActivity {
         });
     }
 
-
     private void loadUserData() {
-        loadingView.setVisibility(View.VISIBLE);
         contentLayout.setVisibility(View.GONE);
 
-        String userId = currentUser.getUid();
-        databaseRef = FirebaseDatabase.getInstance().getReference("users").child(userId);
+        // Отримуємо дані користувача
+        String nickname = userData.getUserNickname();
+        String email = userData.getUserEmail();
+        String photoUrl = userData.getUserPhotoUrl();
+        String phoneNumber = userData.getUserPhoneNumber();
 
-        databaseRef.addListenerForSingleValueEvent(new ValueEventListener() {
-            @Override
-            public void onDataChange(@NonNull DataSnapshot snapshot) {
-                if (snapshot.exists()) {
-                    // Отримуємо дані користувача
-                    String nickname = snapshot.child("nickname").getValue(String.class);
-                    String email = snapshot.child("email").getValue(String.class);
-                    String photoUrl = snapshot.child("photoUrl").getValue(String.class);
-                    String phoneNumber = snapshot.child("phone number").getValue(String.class);
+            // Відображаємо дані
+        nicknameTextView.setText(nickname != null ? nickname : "Noname");
+        emailTextView.setText(email != null ? "Email: " + email : " ");
+        numberTextView.setText(phoneNumber != null ? "Phone: " + phoneNumber : " ");
 
-                    // Відображаємо дані
-                    nicknameTextView.setText(nickname != null ? nickname : "Noname");
-                    emailTextView.setText(email != null ? "Email: " + email : " ");
-                    numberTextView.setText(phoneNumber != null ? "Phone: " + phoneNumber : " ");
+        if (photoUrl != null) {
+            // Завантажуємо фото профілю з використанням Glide
+            Glide.with(UserActivity.this)
+                    .load(photoUrl)
+                    .placeholder(R.drawable.profile_placeholder) // Зображення за замовчуванням
+                    .circleCrop()
+                    .into(profileImageView);
+        }
+        showContentWithAnimation();
+        if(nickname == null && email == null){
+            Toast.makeText(UserActivity.this, "UserData is not loaded", Toast.LENGTH_SHORT).show();
+        }
+    }
 
-                    if (photoUrl != null) {
-                        // Завантажуємо фото профілю з використанням Glide
-                        Glide.with(UserActivity.this)
-                                .load(photoUrl)
-                                .placeholder(R.drawable.profile_placeholder) // Зображення за замовчуванням
-                                .circleCrop()
-                                .into(profileImageView);
-                    }
-                    loadingView.setVisibility(View.GONE);
-                    showContentWithAnimation();
-                } else {
-                    Toast.makeText(UserActivity.this, "Дані користувача не знайдено в базі", Toast.LENGTH_SHORT).show();
-                }
+    private void loadDevicesData() {
+        // Get daily device usage data from EnergyUsageRepository
+        Map<String, Map<String, Float>> dailyDeviceUsageMap = userData.getDailyDeviceUsageMap();
+        deviceList.clear();
+
+        // Map to accumulate total usage per device
+        Map<String, Float> totalUsageMap = new HashMap<>();
+        int numberOfDays = dailyDeviceUsageMap.size(); // Total days in the map
+
+        // Iterate through each day
+        for (Map<String, Float> deviceUsageMap : dailyDeviceUsageMap.values()) {
+            for (Map.Entry<String, Float> deviceEntry : deviceUsageMap.entrySet()) {
+                String deviceName = deviceEntry.getKey();
+                Float usage = deviceEntry.getValue();
+
+                // Accumulate usage per device
+                totalUsageMap.put(deviceName, totalUsageMap.getOrDefault(deviceName, 0f) + usage);
             }
+        }
 
-            @Override
-            public void onCancelled(@NonNull DatabaseError error) {
-                Log.e("UserActivity", "Помилка зчитування даних користувача", error.toException());
-                Toast.makeText(UserActivity.this, "Помилка зчитування даних", Toast.LENGTH_SHORT).show();
-            }
-        });
+        // Calculate average usage for each device and convert to kWh
+        for (Map.Entry<String, Float> entry : totalUsageMap.entrySet()) {
+            String deviceName = entry.getKey();
+            Float totalUsage = entry.getValue();
+
+            // Calculate average usage in kWh
+            float averageUsageInKWh = (totalUsage / numberOfDays) / 1000f;
+
+            // Add to the device list
+            deviceList.add(new DeviceData(deviceName, averageUsageInKWh));
+        }
+
+        // Notify adapter about data changes
+        deviceAdapter.notifyDataSetChanged();
+        devicesRecyclerView.setVisibility(View.VISIBLE);
     }
 
     private void showContentWithAnimation() {
