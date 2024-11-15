@@ -25,6 +25,7 @@ public class EnergyUsageRepository {
     private final DatabaseReference databaseRef;
     private final Map<String, Float> dailyTotalsMap = new LinkedHashMap<>();
     private final Map<String, Map<String, Float>> dailyDeviceUsageMap = new HashMap<>();
+    private String userNickname, userEmail, userPhoneNumber, userPhotoUrl;
     private boolean isDataLoaded = false;
     private FirebaseUser user;
 
@@ -39,6 +40,21 @@ public class EnergyUsageRepository {
             instance = new EnergyUsageRepository();
         }
         return instance;
+    }
+
+    public String getUserNickname() {
+        return userNickname;
+    }
+
+    public String getUserEmail() {
+        return userEmail;
+    }
+
+    public String getUserPhoneNumber() {
+        return userPhoneNumber;
+    }
+    public String getUserPhotoUrl() {
+        return userPhotoUrl;
     }
 
     public Map<String, Float> getDailyTotalsMap() {
@@ -74,6 +90,26 @@ public class EnergyUsageRepository {
 
         Query last30DaysQuery = databaseRef.child("users").child(user.getUid()).child("houseEnergyUsage").orderByKey().limitToLast(30);
 
+        databaseRef.child("users").child(user.getUid()).addListenerForSingleValueEvent(new ValueEventListener() {
+            @Override
+            public void onDataChange(@NonNull DataSnapshot snapshot) {
+                if (snapshot.exists()) {
+                    userNickname = snapshot.child("nickname").getValue(String.class);
+                    userEmail = snapshot.child("email").getValue(String.class);
+                    userPhoneNumber = snapshot.child("phone number").getValue(String.class);
+                    userPhotoUrl = snapshot.child("photoUrl").getValue(String.class);
+                } else {
+                    Log.w("EnergyUsageRepository", "User profile data not found");
+                }
+            }
+
+            @Override
+            public void onCancelled(@NonNull DatabaseError error) {
+                Log.e("EnergyUsageRepository", "Failed to load user profile data", error.toException());
+            }
+        });
+
+        //fetch user data from database
         last30DaysQuery.addListenerForSingleValueEvent(new ValueEventListener() {
             @Override
             public void onDataChange(@NonNull DataSnapshot snapshot) {
