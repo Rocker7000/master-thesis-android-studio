@@ -64,7 +64,6 @@
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
 
-            <!-- Лінійний графік у картці з Spinner -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -76,18 +75,77 @@
                 <LinearLayout
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:orientation="vertical"
-                    android:padding="16dp">
+                    android:orientation="vertical">
 
+                    <!-- Панель з кнопками -->
+                    <LinearLayout
+                        android:layout_width="match_parent"
+                        android:layout_height="30dp"
+                        android:orientation="horizontal"
+                        android:background="@drawable/rounded_panel_background">
+
+                        <!-- Кнопка Hours -->
+                        <TextView
+                            android:id="@+id/btn_hours"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:text="Hours"
+                            android:textAlignment="center"
+                            android:background="@drawable/button_filter_left"
+                            android:gravity="center"
+                            android:textSize="14sp"
+                            android:textColor="?android:attr/textColorPrimary" />
+
+                        <!-- Кнопка Days -->
+                        <TextView
+                            android:id="@+id/btn_days"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:text="Days"
+                            android:textAlignment="center"
+
+                            android:background="@drawable/button_filter_style"
+                            android:gravity="center"
+                            android:textSize="14sp"
+                            android:textColor="?android:attr/textColorPrimary" />
+
+                        <!-- Кнопка Weeks -->
+                        <TextView
+                            android:id="@+id/btn_weeks"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:text="Weeks"
+                            android:textAlignment="center"
+                            android:background="@drawable/button_filter_style"
+                            android:gravity="center"
+                            android:textSize="14sp"
+                            android:textColor="?android:attr/textColorPrimary" />
+
+                        <!-- Кнопка Months -->
+                        <TextView
+                            android:id="@+id/btn_months"
+                            android:layout_width="0dp"
+                            android:layout_height="match_parent"
+                            android:layout_weight="1"
+                            android:text="Months"
+                            android:textAlignment="center"
+                            android:background="@drawable/button_filter_right"
+                            android:gravity="center"
+                            android:textSize="14sp"
+                            android:textColor="?android:attr/textColorPrimary" />
+                    </LinearLayout>
                     <!-- Лінійний графік -->
                     <com.github.mikephil.charting.charts.LineChart
                         android:id="@+id/lineChart"
                         android:layout_width="match_parent"
                         android:layout_height="300dp"
                         android:padding="8dp" />
+
                 </LinearLayout>
             </androidx.cardview.widget.CardView>
-
             <!-- Опис порівняння пристроїв у картці з кнопкою для вибору значень -->
             <androidx.cardview.widget.CardView
                 android:layout_width="match_parent"

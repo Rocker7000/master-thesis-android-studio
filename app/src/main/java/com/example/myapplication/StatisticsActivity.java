@@ -1,13 +1,13 @@
 package com.example.myapplication;
 import android.content.Intent;
 import android.graphics.Color;
+import android.graphics.drawable.GradientDrawable;
 import android.os.Bundle;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.ForegroundColorSpan;
 import android.view.MenuItem;
 import android.view.View;
-import android.widget.Button;
 import android.widget.PopupMenu;
 import android.widget.TextView;
 import android.widget.Toast;
@@ -26,19 +26,26 @@ import com.github.mikephil.charting.formatter.IndexAxisValueFormatter;
 import com.github.mikephil.charting.utils.ColorTemplate;
 
 import java.util.ArrayList;
+import java.util.Calendar;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.TreeSet;
+import java.util.stream.Collectors;
 
 public class StatisticsActivity extends AppCompatActivity {
 
+    private TextView btnHours, btnDays, btnWeeks, btnMonths;
     private LineChart lineChart;
     private BarChart barChart;
     private TextView tvDailySummary;
     private EnergyUsageRepository energyUsageRepository;
     private TextView btnSelectValue;
     List<String> availableDates;
+    private String currentViewType = "days";
+    private String todayDate;
+    private String yesterdayDate;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -61,20 +68,66 @@ public class StatisticsActivity extends AppCompatActivity {
         lineChart = findViewById(R.id.lineChart);
         barChart = findViewById(R.id.barChart);
         tvDailySummary = findViewById(R.id.tv_daily_summary);
-
+        btnHours = findViewById(R.id.btn_hours);
+        btnDays = findViewById(R.id.btn_days);
+        btnWeeks = findViewById(R.id.btn_weeks);
+        btnMonths = findViewById(R.id.btn_months);
         // Fetch and display statistics using the repository
-
 
         // Initialize the button
         btnSelectValue = findViewById(R.id.btn_select_value);
 
-        //set text to button to yesterday
         if (availableDates.size() >= 2) {
-            btnSelectValue.setText(availableDates.get(availableDates.size() - 2));
+            //get today day from date in system
+            todayDate = availableDates.get(availableDates.size() - 1);
+            yesterdayDate = availableDates.get(availableDates.size() - 2);
+            btnSelectValue.setText(yesterdayDate);
+            UpdateLineChart();
+            UpdateBarChart(yesterdayDate);
         }
-        updateCharts(availableDates.get(availableDates.size() - 2));
+
         // Set up click listener to show the popup menu
         btnSelectValue.setOnClickListener(this::showPopupMenu);
+
+        btnHours.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                setButtonSelected(btnHours);
+                currentViewType = "hours";
+
+                UpdateLineChart();
+            }
+        });
+
+        btnDays.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                setButtonSelected(btnDays);
+                currentViewType = "days"; // Змінюємо тип відображення на денне
+
+                UpdateLineChart();
+            }
+        });
+
+        btnWeeks.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                setButtonSelected(btnWeeks);
+                currentViewType = "weeks";
+                UpdateLineChart();
+            }
+        });
+
+        btnMonths.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                setButtonSelected(btnMonths);
+                currentViewType = "months";
+                UpdateLineChart();
+            }
+        });
+
+        setButtonSelected(btnDays);
     }
 
     private void showPopupMenu(View view) {
@@ -88,13 +141,14 @@ public class StatisticsActivity extends AppCompatActivity {
         popupMenu.setOnMenuItemClickListener(item -> {
             String selectedDate = availableDates.get(item.getItemId());
             btnSelectValue.setText(selectedDate);
-            updateCharts(selectedDate);
+            UpdateBarChart(selectedDate);
             return true;
         });
 
         // Show the popup menu
         popupMenu.show();
     }
+
 
     // Handle toolbar back button click to navigate to MainActivity
     @Override
@@ -109,36 +163,45 @@ public class StatisticsActivity extends AppCompatActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    private void updateCharts(String selectedDate) {
+    private void UpdateLineChart() {
         // Get the daily totals map from the repository
         LinkedHashMap<String, Float> dailyTotalsMap = new LinkedHashMap<>(energyUsageRepository.getDailyTotalsMap());
+
+        Map<String, Map<String, Float>> hourlyDevicesUsageMap = energyUsageRepository.getHourlyDevicesUsageMap();
+
+
+        switch (currentViewType) {
+            case "hours":
+                Map<String, Float> hourlyUsage = hourlyDevicesUsageMap.get(todayDate);
+                setupHourlyLineChart(hourlyUsage);
+                break;
+            case "days":
+                setupDaysLineChart(dailyTotalsMap);
+                calculateDailySummary(dailyTotalsMap);
+                break;
+            case "weeks":
+                Map<String, Float> weeklyTotalsMap = energyUsageRepository.getWeeklyTotalsMap();
+                setupWeeksLineChart(weeklyTotalsMap);
+                break;
+            case "months":
+                Map<String, Float> monthlyTotalsMap = energyUsageRepository.getMonthlyTotalsMap();
+                setupMonthsLineChart(monthlyTotalsMap);
+                break;
+        }
+    }
+
+    private void UpdateBarChart(String Date) {
 
         // Get the daily device usage map from the repository
         Map<String, Map<String, Float>> dailyDeviceUsageMap = energyUsageRepository.getDailyDeviceUsageMap();
 
-        // Get the last two days from the LinkedHashMap
-        List<String> keys = new ArrayList<>(dailyTotalsMap.keySet());
-        if (keys.size() >= 2) {
-            String todayDate = keys.get(keys.size()-1);
-
-            // Calculate and display daily summary
-            calculateDailySummary(dailyTotalsMap, todayDate, selectedDate);
-
-            // Setup line chart with daily totals
-            setupLineChart(dailyTotalsMap);
-
-            // Setup bar chart with today's and yesterday's device usage
-            Map<String, Float> todayUsage = dailyDeviceUsageMap.get(todayDate);
-            Map<String, Float> yesterdayUsage = dailyDeviceUsageMap.get(selectedDate);
-            setupBarChart(todayUsage, yesterdayUsage);
-        } else {
-            Toast.makeText(this, "Insufficient data for statistics", Toast.LENGTH_SHORT).show();
-        }
+        // Setup bar chart with today's and yesterday's device usage
+        Map<String, Float> todayUsage = dailyDeviceUsageMap.get(todayDate);
+        Map<String, Float> yesterdayUsage = dailyDeviceUsageMap.get(Date);
+        setupBarChart(todayUsage, yesterdayUsage);
     }
 
-
-
-    private void calculateDailySummary(Map<String, Float> dailyUsageMap, String todayDate, String yesterdayDate) {
+    private void calculateDailySummary(Map<String, Float> dailyUsageMap) {
         Float todayUsage = dailyUsageMap.get(todayDate);
         Float yesterdayUsage = dailyUsageMap.get(yesterdayDate);
 
@@ -169,7 +232,40 @@ public class StatisticsActivity extends AppCompatActivity {
         }
     }
 
-    private void setupLineChart(Map<String, Float> dailyUsageMap) {
+    private void setupHourlyLineChart(Map<String, Float> hourlyUsage) {
+        if (hourlyUsage == null) return;
+
+        List<Entry> entries = new ArrayList<>();
+        int index = 0;
+
+        for (Map.Entry<String, Float> entry : hourlyUsage.entrySet()) {
+            entries.add(new Entry(index++, entry.getValue()));
+        }
+
+        LineDataSet dataSet = new LineDataSet(entries, "Hourly Energy Usage");
+        dataSet.setColor(ColorTemplate.rgb("#000000"));
+        dataSet.setValueTextColor(Color.BLACK);
+
+        LineData lineData = new LineData(dataSet);
+
+        lineChart.setData(lineData);
+        lineChart.getDescription().setEnabled(false);
+
+        XAxis xAxis = lineChart.getXAxis();
+        xAxis.setGranularity(1f);
+        xAxis.setCenterAxisLabels(true);
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setValueFormatter(new IndexAxisValueFormatter(new ArrayList<>(hourlyUsage.keySet())));
+
+        lineChart.setDragEnabled(true);
+        lineChart.setScaleEnabled(false);
+        lineChart.setVisibleXRange(8, 8);
+        lineChart.moveViewToX(0);
+
+        lineChart.invalidate();
+    }
+
+    private void setupDaysLineChart(Map<String, Float> dailyUsageMap) {
         List<Entry> entries = new ArrayList<>();
         int index = 0;
 
@@ -181,9 +277,90 @@ public class StatisticsActivity extends AppCompatActivity {
         dataSet.setColor(ColorTemplate.rgb("#000000"));
         dataSet.setValueTextColor(Color.BLACK);
 
+        // X-Axis configuration for date labels
+        XAxis xAxis = lineChart.getXAxis();
+        xAxis.setGranularity(1f);
+        xAxis.setCenterAxisLabels(true);
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setValueFormatter(new IndexAxisValueFormatter(new ArrayList<>(dailyUsageMap
+                .keySet()
+                .stream()
+                .map(date -> date.substring(8, 10) + "/" + date.substring(5, 7))
+                .collect(Collectors.toList()))));
+
         LineData lineData = new LineData(dataSet);
         lineChart.setData(lineData);
         lineChart.getDescription().setEnabled(false);
+
+
+        lineChart.setDragEnabled(false); // Забороняємо прокручування
+        lineChart.setScaleEnabled(false);// Забороняємо масштабування
+        lineChart.setVisibleXRange(Math.min(entries.size(), 30), Math.min(entries.size(), 30));
+        lineChart.moveViewToX(0); // Переміщуємо до початкової точки
+
+
+        lineChart.invalidate();
+    }
+
+    private void setupWeeksLineChart(Map<String, Float> weeklyUsageMap) {
+        List<Entry> entries = new ArrayList<>();
+        int index = 0;
+
+        for (Map.Entry<String, Float> entry : weeklyUsageMap.entrySet()) {
+            entries.add(new Entry(index++, entry.getValue()));
+        }
+
+        LineDataSet dataSet = new LineDataSet(entries, "Weekly Energy Usage");
+        dataSet.setColor(ColorTemplate.rgb("#000000"));
+        dataSet.setValueTextColor(Color.BLACK);
+
+        // X-Axis configuration for week labels
+        XAxis xAxis = lineChart.getXAxis();
+        xAxis.setGranularity(1f);
+        xAxis.setCenterAxisLabels(true);
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setValueFormatter(new IndexAxisValueFormatter(new ArrayList<>(weeklyUsageMap.keySet())));
+
+        LineData lineData = new LineData(dataSet);
+        lineChart.setData(lineData);
+        lineChart.getDescription().setEnabled(false);
+
+        lineChart.setDragEnabled(false);
+        lineChart.setScaleEnabled(false);
+        lineChart.setVisibleXRange(Math.min(entries.size(), 20), Math.min(entries.size(), 20));
+        lineChart.moveViewToX(0);
+
+        lineChart.invalidate();
+    }
+
+    private void setupMonthsLineChart(Map<String, Float> monthlyUsageMap) {
+        List<Entry> entries = new ArrayList<>();
+        int index = 0;
+
+        for (Map.Entry<String, Float> entry : monthlyUsageMap.entrySet()) {
+            entries.add(new Entry(index++, entry.getValue()));
+        }
+
+        LineDataSet dataSet = new LineDataSet(entries, "Monthly Energy Usage");
+        dataSet.setColor(ColorTemplate.rgb("#000000"));
+        dataSet.setValueTextColor(Color.BLACK);
+
+        // X-Axis configuration for month labels
+        XAxis xAxis = lineChart.getXAxis();
+        xAxis.setGranularity(1f);
+        xAxis.setCenterAxisLabels(true);
+        xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
+        xAxis.setValueFormatter(new IndexAxisValueFormatter(new ArrayList<>(monthlyUsageMap.keySet())));
+
+        LineData lineData = new LineData(dataSet);
+        lineChart.setData(lineData);
+        lineChart.getDescription().setEnabled(false);
+
+        lineChart.setDragEnabled(true);
+        lineChart.setScaleEnabled(false);
+        lineChart.setVisibleXRange(12, 12);
+        lineChart.moveViewToX(0);
+
         lineChart.invalidate();
     }
 
@@ -221,9 +398,45 @@ public class StatisticsActivity extends AppCompatActivity {
         xAxis.setPosition(XAxis.XAxisPosition.BOTTOM);
         xAxis.setValueFormatter(new IndexAxisValueFormatter(new ArrayList<>(allDevices)));
 
+
+
         barChart.groupBars(0f, 0.2f, 0.05f);
         barChart.getDescription().setEnabled(false);
         barChart.setFitBars(true);
         barChart.invalidate();
+    }
+
+    private void setButtonSelected(TextView selectedButton) {
+        // Скидаємо стан для всіх кнопок
+        setButtonState(btnHours, false);
+        setButtonState(btnDays, false);
+        setButtonState(btnWeeks, false);
+        setButtonState(btnMonths, false);
+
+        // Встановлюємо стан для обраної кнопки
+        setButtonState(selectedButton, true);
+    }
+
+    private void setButtonState(TextView button, boolean isSelected) {
+        GradientDrawable drawable = new GradientDrawable();
+        drawable.setShape(GradientDrawable.RECTANGLE);
+        drawable.setStroke(1, getResources().getColor(android.R.color.black));
+
+        if (isSelected) {
+            drawable.setColor(getResources().getColor(android.R.color.darker_gray));
+        } else {
+            drawable.setColor(getResources().getColor(android.R.color.white));
+        }
+
+        if (button == btnHours) {
+            drawable.setCornerRadii(new float[]{16, 16, 0, 0, 0, 0, 16, 16});
+        } else if (button == btnMonths) {
+            drawable.setCornerRadii(new float[]{0, 0, 16, 16, 16, 16, 0, 0});
+        } else {
+            drawable.setCornerRadius(0);
+        }
+
+        button.setBackground(drawable);
+        button.setTextColor(isSelected ? getResources().getColor(android.R.color.white) : getResources().getColor(android.R.color.black));
     }
 }

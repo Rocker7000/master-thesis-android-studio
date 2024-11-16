@@ -12,11 +12,9 @@ import com.google.firebase.database.FirebaseDatabase;
 import com.google.firebase.database.Query;
 import com.google.firebase.database.ValueEventListener;
 
-import java.text.SimpleDateFormat;
 import java.util.Calendar;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.Locale;
 import java.util.Map;
 
 public class EnergyUsageRepository {
@@ -25,6 +23,7 @@ public class EnergyUsageRepository {
     private final DatabaseReference databaseRef;
     private final Map<String, Float> dailyTotalsMap = new LinkedHashMap<>();
     private final Map<String, Map<String, Float>> dailyDeviceUsageMap = new HashMap<>();
+    private final Map<String, Map<String, Float>> hourlyDevicesUsageMap = new HashMap<>();
     private String userNickname, userEmail, userPhoneNumber, userPhotoUrl;
     private boolean isDataLoaded = false;
     private FirebaseUser user;
@@ -65,6 +64,60 @@ public class EnergyUsageRepository {
         return dailyDeviceUsageMap;
     }
 
+    public Map<String, Map<String, Float>> getHourlyDevicesUsageMap() {
+        return hourlyDevicesUsageMap;
+    }
+
+    public Map<String, Float> getWeeklyTotalsMap() {
+        Map<String, Float> dailyTotalsMap = getDailyTotalsMap();
+        Map<String, Float> weeklyTotalsMap = new LinkedHashMap<>();
+
+        for (Map.Entry<String, Float> entry : dailyTotalsMap.entrySet()) {
+            String date = entry.getKey();
+            float usage = entry.getValue();
+            String weekKey = getWeekKey(date);
+            weeklyTotalsMap.put(weekKey, weeklyTotalsMap.getOrDefault(weekKey, 0f) + usage);
+        }
+
+        return weeklyTotalsMap;
+    }
+
+
+    public Map<String, Float> getMonthlyTotalsMap() {
+        Map<String, Float> dailyTotalsMap = getDailyTotalsMap();
+        Map<String, Float> monthlyTotalsMap = new LinkedHashMap<>();
+
+        for (Map.Entry<String, Float> entry : dailyTotalsMap.entrySet()) {
+            String date = entry.getKey();
+            float usage = entry.getValue();
+            String monthKey = getMonthKey(date);
+            monthlyTotalsMap.put(monthKey, monthlyTotalsMap.getOrDefault(monthKey, 0f) + usage);
+        }
+
+        return monthlyTotalsMap;
+    }
+
+
+    private String getWeekKey(String date) {
+        // Example: Assuming date is in "yyyy-MM-dd" format
+        // Extract the year and the week number
+        Calendar calendar = Calendar.getInstance();
+        calendar.set(Integer.parseInt(date.substring(0, 4)),
+                Integer.parseInt(date.substring(5, 7)) - 1,
+                Integer.parseInt(date.substring(8, 10)));
+        int weekOfYear = calendar.get(Calendar.WEEK_OF_YEAR);
+        int year = calendar.get(Calendar.YEAR);
+        return year + "-W" + weekOfYear;
+    }
+
+    private String getMonthKey(String date) {
+        // Example: Assuming date is in "yyyy-MM-dd" format
+        // Extract the year and the month
+        String year = date.substring(0, 4);
+        String month = date.substring(5, 7);
+        return year + "-" + month;
+    }
+
     public boolean isDataLoaded() {
         return isDataLoaded;
     }
@@ -87,6 +140,7 @@ public class EnergyUsageRepository {
 
         dailyTotalsMap.clear();
         dailyDeviceUsageMap.clear();
+        hourlyDevicesUsageMap.clear();
 
         Query last30DaysQuery = databaseRef.child("users").child(user.getUid()).child("houseEnergyUsage").orderByKey().limitToLast(30);
 
@@ -117,21 +171,32 @@ public class EnergyUsageRepository {
                     String date = dateSnapshot.getKey();
                     float dailyTotal = 0.0f;
                     Map<String, Float> deviceUsage = new HashMap<>();
+                    Map<String, Float> hourlyUsage = new LinkedHashMap<>();
 
                     for (DataSnapshot timeSnapshot : dateSnapshot.getChildren()) {
+                        String time = timeSnapshot.getKey();
+                        int hour = Integer.parseInt(time.split(":")[0]); // Отримати годину
+                        String hourKey = hour + ":00";
+
+                        float hourlyTotal = 0.0f;
+
                         for (DataSnapshot deviceSnapshot : timeSnapshot.getChildren()) {
                             String deviceName = deviceSnapshot.getKey();
                             Double usage = deviceSnapshot.getValue(Double.class);
 
                             if (usage != null) {
                                 dailyTotal += usage;
+                                hourlyTotal += usage.floatValue();
                                 deviceUsage.put(deviceName, deviceUsage.getOrDefault(deviceName, 0f) + usage.floatValue());
                             }
                         }
+
+                        hourlyUsage.put(hourKey, hourlyUsage.getOrDefault(hourKey, 0f) + hourlyTotal);
                     }
 
                     dailyTotalsMap.put(date, dailyTotal);
                     dailyDeviceUsageMap.put(date, deviceUsage);
+                    hourlyDevicesUsageMap.put(date, hourlyUsage);
                 }
 
                 isDataLoaded = true;
