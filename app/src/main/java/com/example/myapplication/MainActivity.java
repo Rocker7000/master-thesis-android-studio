@@ -80,6 +80,7 @@ public class MainActivity extends AppCompatActivity {
     private void setupNavigationButtons() {
         findViewById(R.id.monitoring_button).setOnClickListener(v -> startActivity(new Intent(this, MonitoringActivity.class)));
         findViewById(R.id.statics_button).setOnClickListener(v -> startActivity(new Intent(this, StatisticsActivity.class)));
+        findViewById(R.id.analysis_button).setOnClickListener(v -> startActivity(new Intent(this, AnalysisActivity.class)));
         findViewById(R.id.nav_home).setOnClickListener(v -> recreate());
         findViewById(R.id.nav_user).setOnClickListener(v -> {
             startActivity(new Intent(this, UserActivity.class));

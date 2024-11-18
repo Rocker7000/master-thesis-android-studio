@@ -124,6 +124,7 @@
 
         <!--third button-->
         <LinearLayout
+            android:id="@+id/analysis_button"
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
